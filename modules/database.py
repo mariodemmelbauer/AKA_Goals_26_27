@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import streamlit as st
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data.db"
-TEAMS = ("U15", "U16", "U18", "JWR")
+TEAMS = ("U15", "U16", "U18", "JWR", "Profis")
 
 
 def _now_iso():

@@ -299,3 +299,24 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 - neues Team `Profis` ergänzt
 - vollständig analog zu U15, U16, U18 und JWR
 - verfügbar in Team-Auswahl, Spiel-/Tor-Erfassung, Team-Dashboard und Gesamt-Dashboard
+
+## Neu in v42
+- Supabase-Constraints für das neue Team `Profis` korrigiert
+- `matches.team` akzeptiert nun U15, U16, U18, JWR und Profis
+- `goal_events.team` akzeptiert nun U15, U16, U18, JWR und Profis
+- `modules/database.py` enthält Profis auch im lokalen SQLite-Fallback
+- `supabase_add_profis.sql` für bestehende Supabase-Datenbank ergänzt
+
+Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
+`supabase_add_profis.sql` im Supabase SQL Editor ausführen.
+
+## Neu in v43
+- Prozentberechnung der Zonen in den Grafiken korrigiert
+- Zonenzuordnung basiert jetzt auf denselben gezeichneten Zonen wie im Dashboard
+- keine groben 0–100-Schwellen mehr, sondern exakte Dashboard-Geometrie
+- gilt für Tore-, Gegentore- und Assist-Grafiken
+
+## Neu in v44
+- Spielfeldgrafik der Torerfassung um den Halbkreis am 16er ergänzt
+- horizontaler und vertikaler Pitch aktualisiert
+- Eingabefeld passt damit optisch noch besser zur Dashboard-Darstellung

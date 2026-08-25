@@ -691,21 +691,45 @@ def render_dashboard_header():
 
 
 def zone_bucket(x, y):
+    """
+    Assign the point to the SAME tactical zones that are drawn in the dashboard.
+
+    Input coordinates are canonical 0..100 pitch coordinates.
+    Classification is done on the converted dashboard metre coordinates so that
+    the percentage badges always match the visual graphics exactly.
+    """
     if pd.isna(x) or pd.isna(y):
         return "Rest"
 
-    if x >= 83.5 and 23 <= y <= 77:
+    mapped = canonical_to_dashboard_xy(x, y)
+    if mapped is None:
+        return "Rest"
+
+    plot_x, plot_y = mapped  # x = field width in metres, y = distance from goal line
+
+    # Same geometry as draw_half_pitch():
+    # Yellow central box zone: Rectangle((25.0, 0), 18.0, 16.5)
+    if 25.0 <= plot_x <= 43.0 and 0.0 <= plot_y <= 16.5:
         return "Box zentral"
-    if x >= 74 and y < 23:
-        return "Flügel links"
-    if x >= 74 and y > 77:
-        return "Flügel rechts"
-    if x >= 66.67 and 23 <= y < 38:
-        return "Halbraum links"
-    if x >= 66.67 and 62 < y <= 77:
-        return "Halbraum rechts"
-    if x >= 66.67 and 38 <= y <= 62:
+
+    # Red Zone 14: Rectangle((25.0, 16.5), 18.0, 8.2)
+    if 25.0 <= plot_x <= 43.0 and 16.5 < plot_y <= 24.7:
         return "Zone 14"
+
+    # Left / right halfspaces: between outer box edge and central zone edge,
+    # in the upper attacking band up to the edge of the box zone.
+    if 13.84 <= plot_x < 25.0 and 5.5 <= plot_y <= 16.5:
+        return "Halbraum links"
+    if 43.0 < plot_x <= 54.16 and 5.5 <= plot_y <= 16.5:
+        return "Halbraum rechts"
+
+    # Left / right wings: outside the penalty area width but within the final
+    # attacking band shown next to the halfspaces.
+    if 0.0 <= plot_x < 13.84 and 10.0 <= plot_y <= 24.5:
+        return "Flügel links"
+    if 54.16 < plot_x <= 68.0 and 10.0 <= plot_y <= 24.5:
+        return "Flügel rechts"
+
     return "Distanz"
 
 
@@ -724,6 +748,7 @@ def zone_percentages(df, coord_prefix="finish"):
     if valid.empty:
         return result
 
+    # Classification uses the exact same geometric zones as the dashboard graphics.
     bucketed = valid.apply(lambda r: zone_bucket(r.get(x_col), r.get(y_col)), axis=1)
     counts = bucketed.value_counts()
     total = len(valid)
