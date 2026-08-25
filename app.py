@@ -733,6 +733,47 @@ def zone_percentages(df, coord_prefix="finish"):
 
 
 
+
+PITCH_LENGTH_M = 105.0
+PITCH_WIDTH_M = 68.0
+HALF_PITCH_LENGTH_M = PITCH_LENGTH_M / 2.0
+
+
+def canonical_to_dashboard_xy(length_pct, width_pct):
+    """
+    Convert canonical 0..100 pitch coordinates to dashboard half-pitch metres.
+
+    Canonical coordinates:
+      length_pct: 0 = own goal, 100 = opponent goal
+      width_pct:  0 = left touchline, 100 = right touchline
+
+    Dashboard:
+      x = width in metres, left -> right
+      y = metres from opponent goal line, goal -> halfway line
+    """
+    if length_pct is None or width_pct is None:
+        return None
+
+    length_pct = max(0.0, min(100.0, float(length_pct)))
+    width_pct = max(0.0, min(100.0, float(width_pct)))
+
+    plot_x = (width_pct / 100.0) * PITCH_WIDTH_M
+    distance_from_opponent_goal = ((100.0 - length_pct) / 100.0) * PITCH_LENGTH_M
+
+    # The dashboard only shows the attacking half. Values from the own half
+    # are clipped to the halfway line rather than being spatially compressed.
+    plot_y = max(0.0, min(HALF_PITCH_LENGTH_M, distance_from_opponent_goal))
+
+    return plot_x, plot_y
+
+
+def dashboard_xy_to_canonical(plot_x, plot_y):
+    """Inverse helper, useful for validation/testing."""
+    width_pct = (float(plot_x) / PITCH_WIDTH_M) * 100.0
+    length_pct = 100.0 - (float(plot_y) / PITCH_LENGTH_M) * 100.0
+    return length_pct, width_pct
+
+
 def prepare_chart_df(events_df, mirror=False):
     """
     Prepare finish / assist coordinates for chart rendering.
@@ -804,7 +845,7 @@ def draw_half_pitch(
     chart_df = prepare_chart_df(events_df, mirror=mirror)
 
     def pitch_to_plot(x, y):
-        return y * 0.68, (100 - x) * 0.525
+        return canonical_to_dashboard_xy(x, y)
 
     if connect_assists and chart_df is not None and not chart_df.empty:
         valid_links = chart_df[
@@ -817,9 +858,13 @@ def draw_half_pitch(
             ax.plot([x1, x2], [y1, y2], color=(1, 1, 1, 0.34), lw=1.8, zorder=5)
 
         if show_assist_points and not valid_links.empty:
+            assist_xy = [
+                canonical_to_dashboard_xy(row["assist_x"], row["assist_y"])
+                for _, row in valid_links.iterrows()
+            ]
             ax.scatter(
-                valid_links["assist_y"].astype(float) * 0.68,
-                (100 - valid_links["assist_x"].astype(float)) * 0.525,
+                [p[0] for p in assist_xy],
+                [p[1] for p in assist_xy],
                 s=34, c="#ffffff", alpha=0.85, edgecolors="none", zorder=6
             )
 
@@ -829,8 +874,12 @@ def draw_half_pitch(
         y_col = f"{coord_prefix}_y"
         valid_points = chart_df[chart_df[x_col].notna() & chart_df[y_col].notna()]
         if not valid_points.empty:
-            x_plot = valid_points[y_col].astype(float) * 0.68
-            y_plot = (100 - valid_points[x_col].astype(float)) * 0.525
+            mapped_points = [
+                canonical_to_dashboard_xy(row[x_col], row[y_col])
+                for _, row in valid_points.iterrows()
+            ]
+            x_plot = [p[0] for p in mapped_points]
+            y_plot = [p[1] for p in mapped_points]
             marker_color = (
                 finish_marker_color
                 if point_mode == "finish" and finish_marker_color
@@ -1020,7 +1069,11 @@ def render_event_editor(event):
             st.markdown(f"**{edit_labels[key]}**")
             if p:
                 st.write(derive_zone(*p))
-                st.caption(f"x {p[0]:.1f} · y {p[1]:.1f}")
+                dash_xy = canonical_to_dashboard_xy(p[0], p[1])
+                st.caption(
+                    f"Feld: L {p[0]:.1f}% · B {p[1]:.1f}%"
+                    f"  |  Dashboard: {dash_xy[0]:.1f}m / {dash_xy[1]:.1f}m"
+                )
             else:
                 st.caption("nicht gesetzt")
 

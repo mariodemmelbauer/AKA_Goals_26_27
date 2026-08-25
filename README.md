@@ -268,3 +268,10 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 - Sidebar-Text `⚽ SV Ried` entfernt
 - Sidebar-Text `AKA Goal Dashboard` entfernt
 - Dashboard-Haupttitel auf `AKA Goals Dashboard` geändert
+
+## Neu in v37
+- Koordinatentransformation Erfassung -> Dashboard neu zentral definiert
+- Feldlänge korrekt als 105 m, Feldbreite als 68 m
+- Dashboard zeigt echte Angriffs-Hälfte (52,5 m), ohne 105 m auf 52,5 m zusammenzustauchen
+- Assist-, Abschluss- und Verbindungslinien verwenden exakt dieselbe Transformation
+- Positionswerte im Editor zeigen zusätzlich die resultierenden Dashboard-Meter
