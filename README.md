@@ -294,3 +294,8 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 - `Assists eigene Tore / Gegentore` stehen jetzt vor den weiteren Analysen
 - darunter `Torabschluss nach Kontakten`
 - darunter `Tore nach Spielminute`
+
+## Neu in v41
+- neues Team `Profis` ergänzt
+- vollständig analog zu U15, U16, U18 und JWR
+- verfügbar in Team-Auswahl, Spiel-/Tor-Erfassung, Team-Dashboard und Gesamt-Dashboard

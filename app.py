@@ -522,7 +522,7 @@ body > div[data-baseweb="menu"] * {
 """, unsafe_allow_html=True)
 
 init_db()
-TEAMS = ["U15", "U16", "U18", "JWR"]
+TEAMS = ["U15", "U16", "U18", "JWR", "Profis"]
 
 with st.sidebar:
     st.image("assets/sv_ried_logo.png", width=85)
