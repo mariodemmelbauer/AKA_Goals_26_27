@@ -320,3 +320,8 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
 - Spielfeldgrafik der Torerfassung um den Halbkreis am 16er ergänzt
 - horizontaler und vertikaler Pitch aktualisiert
 - Eingabefeld passt damit optisch noch besser zur Dashboard-Darstellung
+
+## Neu in v45
+- Pitch-Grafik für die Torerfassung komplett sauber neu gezeichnet
+- Strafraum-Halbkreise (Penalty Arcs) korrekt positioniert und orientiert
+- horizontale und vertikale Pitch-Datei neu erzeugt
