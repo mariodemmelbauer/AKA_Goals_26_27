@@ -11,7 +11,7 @@ from matplotlib.patches import Rectangle, Arc, Circle
 from modules.database import init_db, create_match, get_matches, insert_event, get_events, delete_event, update_event, delete_match
 from modules.zones import derive_zone
 
-st.set_page_config(page_title="AKA Teams Dashboard", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="AKA Goals Dashboard", page_icon="⚽", layout="wide")
 
 st.markdown("""
 <style>
@@ -526,8 +526,6 @@ TEAMS = ["U15", "U16", "U18", "JWR"]
 
 with st.sidebar:
     st.image("assets/sv_ried_logo.png", width=85)
-    st.markdown("## ⚽ SV Ried")
-    st.caption("AKA Goal Dashboard")
     page = st.radio("Navigation", ["Dashboard", "Gesamt Dashboard", "Tor / Gegentor erfassen", "Spiel anlegen"], label_visibility="collapsed")
     st.divider()
     st.markdown("**Team**")
@@ -686,7 +684,7 @@ def render_dashboard_header():
                 <div class="aka-ball1"></div>
                 <div class="aka-ball2"></div>
             </div>
-            <div class="aka-title">AKA Teams Dashboard</div>
+            <div class="aka-title">AKA Goals Dashboard</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -767,7 +765,8 @@ def draw_half_pitch(
     mirror=False,
     point_mode="finish",
     connect_assists=False,
-    show_assist_points=False
+    show_assist_points=False,
+    finish_marker_color=None
 ):
     ax.set_facecolor("#171717")
     green = "#12f2ad"
@@ -815,13 +814,13 @@ def draw_half_pitch(
         for _, row in valid_links.iterrows():
             x1, y1 = pitch_to_plot(float(row["assist_x"]), float(row["assist_y"]))
             x2, y2 = pitch_to_plot(float(row["finish_x"]), float(row["finish_y"]))
-            ax.plot([x1, x2], [y1, y2], color=(1, 1, 1, 0.22), lw=1.6, zorder=5)
+            ax.plot([x1, x2], [y1, y2], color=(1, 1, 1, 0.34), lw=1.8, zorder=5)
 
         if show_assist_points and not valid_links.empty:
             ax.scatter(
                 valid_links["assist_y"].astype(float) * 0.68,
                 (100 - valid_links["assist_x"].astype(float)) * 0.525,
-                s=26, c="#ffffff", alpha=0.55, edgecolors="none", zorder=6
+                s=34, c="#ffffff", alpha=0.85, edgecolors="none", zorder=6
             )
 
     coord_prefix = "assist" if point_mode == "assist" else "finish"
@@ -832,9 +831,14 @@ def draw_half_pitch(
         if not valid_points.empty:
             x_plot = valid_points[y_col].astype(float) * 0.68
             y_plot = (100 - valid_points[x_col].astype(float)) * 0.525
+            marker_color = (
+                finish_marker_color
+                if point_mode == "finish" and finish_marker_color
+                else point_color
+            )
             ax.scatter(
                 x_plot, y_plot,
-                s=58, c=point_color, edgecolors="#f0f0f0",
+                s=58, c=marker_color, edgecolors="#f0f0f0",
                 linewidths=1.2, zorder=7
             )
 
@@ -877,7 +881,8 @@ def create_dashboard_figure(
     mirror=False,
     point_mode="finish",
     connect_assists=False,
-    show_assist_points=False
+    show_assist_points=False,
+    finish_marker_color=None
 ):
     fig, ax = plt.subplots(figsize=(8.4, 6.7), facecolor="#020202")
     draw_half_pitch(
@@ -888,7 +893,8 @@ def create_dashboard_figure(
         mirror=mirror,
         point_mode=point_mode,
         connect_assists=connect_assists,
-        show_assist_points=show_assist_points
+        show_assist_points=show_assist_points,
+        finish_marker_color=finish_marker_color
     )
     plt.tight_layout(pad=.65)
     return fig
@@ -1684,6 +1690,7 @@ elif page == "Gesamt Dashboard":
     g2.metric("Gegentore alle Teams", len(against_all))
     g3.metric("Differenz", len(goals_all) - len(against_all))
 
+    st.caption("🔴 Abschluss · ⚪ Assist / letzter Pass · Linie = zugehörige Szene")
     p1, p2 = st.columns(2, gap="small")
     with p1:
         st.markdown('<div class="aka-section-title">Alle Teams - Eigene Tore</div>', unsafe_allow_html=True)
@@ -1692,7 +1699,8 @@ elif page == "Gesamt Dashboard":
             "Alle Teams - Eigene Tore",
             point_color="#5cff67",
             connect_assists=True,
-            show_assist_points=True
+            show_assist_points=True,
+            finish_marker_color="#dc2828"
         )
         st.pyplot(fig_all_goals, use_container_width=True)
         plt.close(fig_all_goals)
@@ -1785,6 +1793,7 @@ else:
     against_all = df_all[df_all["event_type"] == "Gegentor"].copy()
     goals_all = df_all[df_all["event_type"] == "Tor"].copy()
 
+    st.caption("🔴 Abschluss · ⚪ Assist / letzter Pass · Linie = zugehörige Szene")
     c1, c2 = st.columns(2, gap="small")
 
     with c1:
@@ -1794,7 +1803,8 @@ else:
             f"{team} - Eigene Tore",
             point_color="#4cff42",
             connect_assists=True,
-            show_assist_points=True
+            show_assist_points=True,
+            finish_marker_color="#dc2828"
         )
         st.pyplot(fig1, use_container_width=True)
         plt.close(fig1)

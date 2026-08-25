@@ -255,3 +255,16 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 ## Neu in v34
 - Bugfix: Erfassungs-Spielfeld und Szenen-Editor zeigen jetzt wirklich das vertikale Pitch-Bild
 - Angriffsrichtung bei Erfassung/Bearbeitung sichtbar als von unten nach oben
+
+## Neu in v35
+- Dashboard-Szenen visuell an die Erfassung angeglichen
+- Abschluss im Tore-Dashboard rot wie bei der Eingabe
+- Assist weiß wie bei der Eingabe
+- transparente Verbindungslinie pro Szene deutlicher sichtbar
+- Legende zur eindeutigen Zuordnung ergänzt
+- Koordinatenlogik aus v34 unverändert
+
+## Neu in v36
+- Sidebar-Text `⚽ SV Ried` entfernt
+- Sidebar-Text `AKA Goal Dashboard` entfernt
+- Dashboard-Haupttitel auf `AKA Goals Dashboard` geändert
