@@ -207,3 +207,39 @@ Für räumliche Events werden immer Rohkoordinaten `x/y` (0..100) und zusätzlic
 - `Assists Gegentore` wird auch bei 0 Assists immer mit Pitch angezeigt
 - Assist-Grafiken eigene Tore und Gegentore sind gleich groß
 - gilt im Team-Dashboard und im Gesamt-Dashboard
+
+
+## v32 – Supabase / PostgreSQL produktiv
+
+### 1. Supabase-Projekt anlegen
+Neues Supabase-Projekt erstellen und anschließend im **SQL Editor** den kompletten Inhalt von `schema.sql` ausführen.
+
+### 2. Lokale Secrets
+`.streamlit/secrets.example.toml` nach `.streamlit/secrets.toml` kopieren und URL + serverseitigen Supabase Secret/Service-Role-Key eintragen.
+
+### 3. Verbindung testen
+```powershell
+python check_supabase.py
+```
+
+### 4. Bestehende SQLite-Daten übertragen
+Wenn die aktuelle `data.db` übernommen werden soll:
+```powershell
+python migrate_sqlite_to_supabase.py
+```
+
+### 5. Lokal starten
+```powershell
+python -m streamlit run app.py
+```
+Sobald `[supabase]` in `secrets.toml` vorhanden ist, verwendet die App automatisch PostgreSQL statt SQLite.
+
+### 6. Streamlit Cloud
+Unter **App -> Settings -> Secrets** eintragen:
+```toml
+[supabase]
+url = "https://YOUR_PROJECT.supabase.co"
+key = "YOUR_SERVER_SIDE_SECRET_KEY"
+```
+
+`data.db` und `.streamlit/secrets.toml` sind über `.gitignore` ausgeschlossen.

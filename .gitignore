@@ -6,3 +6,11 @@ data.db
 venv/
 .env
 .tmp_pitch/
+*.db
+*.sqlite
+*.sqlite3
+*.py[cod]
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
