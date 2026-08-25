@@ -288,3 +288,9 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
   - Tore: Assist + Abschluss
   - Gegentore: Assist + Abschluss
 - gilt im Team-Dashboard und im Gesamt-Dashboard
+
+## Neu in v40
+- Reihenfolge im Team-Dashboard geändert
+- `Assists eigene Tore / Gegentore` stehen jetzt vor den weiteren Analysen
+- darunter `Torabschluss nach Kontakten`
+- darunter `Tore nach Spielminute`

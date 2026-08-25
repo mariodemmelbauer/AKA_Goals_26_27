@@ -1964,12 +1964,6 @@ else:
     s4.metric("Assists Gegentore", assists_against_count)
 
     st.divider()
-    render_touch_analysis(goals_team, f"{team} – Torabschluss nach Kontakten")
-
-    st.divider()
-    render_goal_time_analysis(df_team, f"{team} – Tore nach Spielminute")
-
-    st.divider()
     st.markdown("### Assists / letzter Pass")
     ta1, ta2 = st.columns(2, gap="small")
     with ta1:
@@ -1987,6 +1981,12 @@ else:
             full_size=True,
             always_show=True
         )
+
+    st.divider()
+    render_touch_analysis(goals_team, f"{team} – Torabschluss nach Kontakten")
+
+    st.divider()
+    render_goal_time_analysis(df_team, f"{team} – Tore nach Spielminute")
 
     with st.expander("Weitere Auswertungen", expanded=False):
         d1, d2 = st.columns(2)
