@@ -243,3 +243,11 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 ```
 
 `data.db` und `.streamlit/secrets.toml` sind über `.gitignore` ausgeschlossen.
+
+## Neu in v33
+- Spielfeld bei Tor-/Gegentor-Erfassung vertikal
+- Angriffsrichtung in Erfassung und Szenen-Editor von unten nach oben
+- internes 0–100-Koordinatensystem bleibt unverändert, bestehende Daten bleiben kompatibel
+- neue Torzeit-Auswertung pro Mannschaft und im Gesamt-Dashboard
+- Zeitfenster: 1–25, 26–45, 46–75, 76–90
+- Tore und Gegentore werden je Zeitfenster getrennt dargestellt

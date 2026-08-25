@@ -541,12 +541,13 @@ with st.sidebar:
 
 
 
-PITCH_IMAGE_W = 1000
-PITCH_IMAGE_H = 650
+PITCH_IMAGE_W = 650
+PITCH_IMAGE_H = 1000
 PITCH_LEFT = 35
-PITCH_RIGHT = 965
+PITCH_RIGHT = 615
 PITCH_TOP = 35
-PITCH_BOTTOM = 615
+PITCH_BOTTOM = 965
+PITCH_CAPTURE_WIDTH = 620
 
 PENALTY_SPOT_X = round((105.0 - 11.0) / 105.0 * 100.0, 2)
 PENALTY_SPOT = (PENALTY_SPOT_X, 50.0)
@@ -555,7 +556,15 @@ CORNER_RIGHT = (100.0, 100.0)
 SET_PIECE_OPTIONS = ["Keine", "Eckball links", "Eckball rechts", "Elfmeter"]
 
 
-def image_click_to_pitch(click, rendered_width=900):
+def image_click_to_pitch(click, rendered_width=PITCH_CAPTURE_WIDTH):
+    """
+    Convert click coordinates on the vertical capture pitch to canonical
+    pitch coordinates.
+
+    Visual attacking direction: bottom -> top.
+    Canonical x: 0 own goal -> 100 attacking goal.
+    Canonical y: 0 left side -> 100 right side.
+    """
     rendered_height = rendered_width * PITCH_IMAGE_H / PITCH_IMAGE_W
     scale_x = rendered_width / PITCH_IMAGE_W
     scale_y = rendered_height / PITCH_IMAGE_H
@@ -565,8 +574,13 @@ def image_click_to_pitch(click, rendered_width=900):
     top = PITCH_TOP * scale_y
     bottom = PITCH_BOTTOM * scale_y
 
-    x = (float(click["x"]) - left) / (right - left) * 100.0
-    y = (float(click["y"]) - top) / (bottom - top) * 100.0
+    # horizontal screen position maps to canonical y
+    y = (float(click["x"]) - left) / (right - left) * 100.0
+
+    # vertical screen position is inverted:
+    # bottom = canonical x 0, top = canonical x 100
+    x = (bottom - float(click["y"])) / (bottom - top) * 100.0
+
     return (
         round(max(0.0, min(100.0, x)), 2),
         round(max(0.0, min(100.0, y)), 2),
@@ -574,11 +588,17 @@ def image_click_to_pitch(click, rendered_width=900):
 
 
 def pitch_to_image_xy(point, image_width=PITCH_IMAGE_W, image_height=PITCH_IMAGE_H):
+    """
+    Convert canonical pitch coordinates to the vertical input image.
+    x 0 -> bottom, x 100 -> top.
+    y 0 -> left, y 100 -> right.
+    """
     if not point:
         return None
+
     x, y = point
-    px = PITCH_LEFT + (float(x) / 100.0) * (PITCH_RIGHT - PITCH_LEFT)
-    py = PITCH_TOP + (float(y) / 100.0) * (PITCH_BOTTOM - PITCH_TOP)
+    px = PITCH_LEFT + (float(y) / 100.0) * (PITCH_RIGHT - PITCH_LEFT)
+    py = PITCH_BOTTOM - (float(x) / 100.0) * (PITCH_BOTTOM - PITCH_TOP)
     return int(round(px)), int(round(py))
 
 
@@ -967,12 +987,12 @@ def render_event_editor(event):
 
     click = streamlit_image_coordinates(
         str(annotated),
-        width=900,
+        width=PITCH_CAPTURE_WIDTH,
         key=f"edit_pitch_{event_id}_{point_to_edit}_{st.session_state[nonce_key]}"
     )
 
     if click:
-        new_xy = image_click_to_pitch(click, rendered_width=900)
+        new_xy = image_click_to_pitch(click, rendered_width=PITCH_CAPTURE_WIDTH)
 
         fixed_point = (
             (edit_set_piece == "Elfmeter" and point_to_edit == "finish") or
@@ -1279,6 +1299,105 @@ def render_assist_analysis(df, title, mirror=False, full_size=False, always_show
             plt.close(fig)
 
 
+GOAL_TIME_BINS = [
+    ("1–25", 1, 25),
+    ("26–45", 26, 45),
+    ("46–75", 46, 75),
+    ("76–90", 76, 90),
+]
+
+
+def goal_time_summary(df):
+    rows = []
+    if df is None or df.empty or "minute" not in df.columns:
+        for label, _, _ in GOAL_TIME_BINS:
+            rows.append({"Zeitfenster": label, "Tore": 0, "Gegentore": 0})
+        return pd.DataFrame(rows)
+
+    work = df.copy()
+    work["minute"] = pd.to_numeric(work["minute"], errors="coerce")
+
+    for label, start_min, end_min in GOAL_TIME_BINS:
+        bucket = work[(work["minute"] >= start_min) & (work["minute"] <= end_min)]
+        rows.append({
+            "Zeitfenster": label,
+            "Tore": int((bucket["event_type"] == "Tor").sum()),
+            "Gegentore": int((bucket["event_type"] == "Gegentor").sum()),
+        })
+
+    return pd.DataFrame(rows)
+
+
+def render_goal_time_analysis(df, title):
+    st.markdown(f"### {title}")
+    summary = goal_time_summary(df)
+
+    # compact metrics
+    cols = st.columns(4)
+    for col, row in zip(cols, summary.to_dict("records")):
+        with col:
+            st.metric(
+                row["Zeitfenster"],
+                f"{row['Tore']} : {row['Gegentore']}",
+                help="Tore : Gegentore",
+            )
+
+    # compact grouped bar chart
+    tc1, tc2, tc3 = st.columns([0.7, 3.2, 0.7])
+    with tc2:
+        fig, ax = plt.subplots(figsize=(6.2, 2.9), facecolor="#171717")
+        ax.set_facecolor("#171717")
+
+        positions = list(range(len(summary)))
+        width = 0.36
+        bars_goals = ax.bar(
+            [p - width/2 for p in positions],
+            summary["Tore"],
+            width=width,
+            label="Tore",
+        )
+        bars_against = ax.bar(
+            [p + width/2 for p in positions],
+            summary["Gegentore"],
+            width=width,
+            label="Gegentore",
+        )
+
+        ax.set_xticks(positions)
+        ax.set_xticklabels(summary["Zeitfenster"], color="white", fontsize=9)
+        ax.tick_params(axis="y", colors="white", labelsize=8)
+        ax.set_ylabel("Anzahl", color="white", fontsize=9)
+        ax.legend(fontsize=8, frameon=False, labelcolor="white")
+
+        max_value = max(
+            1,
+            int(summary["Tore"].max()),
+            int(summary["Gegentore"].max()),
+        )
+        ax.set_ylim(0, max_value + 1.4)
+
+        for bars in (bars_goals, bars_against):
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width()/2,
+                    height + 0.08,
+                    f"{int(height)}",
+                    ha="center",
+                    va="bottom",
+                    color="white",
+                    fontsize=8.5,
+                    fontweight="bold",
+                )
+
+        for spine in ax.spines.values():
+            spine.set_color("#555555")
+
+        fig.tight_layout(pad=.7)
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+
+
 if page == "Spiel anlegen":
     st.title(f"{team} · Spiel anlegen")
     with st.form("new_match", clear_on_submit=True):
@@ -1447,12 +1566,12 @@ elif page == "Tor / Gegentor erfassen":
 
         value = streamlit_image_coordinates(
             str(annotated_pitch),
-            width=900,
+            width=PITCH_CAPTURE_WIDTH,
             key=f"pitch_{match['id']}_{event_type}_{next_step}"
         )
 
         if value:
-            xy = image_click_to_pitch(value, rendered_width=900)
+            xy = image_click_to_pitch(value, rendered_width=PITCH_CAPTURE_WIDTH)
 
             fixed_point = (
                 (set_piece_type == "Elfmeter" and next_step == "finish") or
@@ -1465,7 +1584,7 @@ elif page == "Tor / Gegentor erfassen":
                 st.session_state[state_key] = points
                 st.rerun()
     else:
-        st.image(str(annotated_pitch), width=900)
+        st.image(str(annotated_pitch), width=PITCH_CAPTURE_WIDTH)
         st.success("Alle drei Punkte sind erfasst. Der komplette Angriffsweg ist oben sichtbar.")
 
     cols = st.columns(3)
@@ -1593,6 +1712,9 @@ elif page == "Gesamt Dashboard":
     render_touch_analysis(goals_all, "Alle Teams – Torabschluss nach Kontakten")
 
     st.divider()
+    render_goal_time_analysis(df_all, "Alle Teams – Tore nach Spielminute")
+
+    st.divider()
     st.markdown("### Assists / letzter Pass")
     ga1, ga2 = st.columns(2, gap="small")
     with ga1:
@@ -1697,6 +1819,9 @@ else:
 
     st.divider()
     render_touch_analysis(goals_team, f"{team} – Torabschluss nach Kontakten")
+
+    st.divider()
+    render_goal_time_analysis(df_team, f"{team} – Tore nach Spielminute")
 
     st.divider()
     st.markdown("### Assists / letzter Pass")
