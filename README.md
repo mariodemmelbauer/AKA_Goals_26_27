@@ -275,3 +275,9 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 - Dashboard zeigt echte Angriffs-Hälfte (52,5 m), ohne 105 m auf 52,5 m zusammenzustauchen
 - Assist-, Abschluss- und Verbindungslinien verwenden exakt dieselbe Transformation
 - Positionswerte im Editor zeigen zusätzlich die resultierenden Dashboard-Meter
+
+## Neu in v38
+- Assist-Punkte werden unabhängig von Verbindungslinien geplottet
+- weiße Assist-Punkte größer und mit hohem z-order
+- Standalone-Assist-Grafiken ebenfalls mit besser sichtbaren Markern
+- Team-Dashboard zeigt Assist-Anzahl für eigene Tore und Gegentore direkt in den Kennzahlen

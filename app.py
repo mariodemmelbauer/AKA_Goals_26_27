@@ -847,26 +847,45 @@ def draw_half_pitch(
     def pitch_to_plot(x, y):
         return canonical_to_dashboard_xy(x, y)
 
-    if connect_assists and chart_df is not None and not chart_df.empty:
-        valid_links = chart_df[
-            chart_df["assist_x"].notna() & chart_df["assist_y"].notna() &
-            chart_df["finish_x"].notna() & chart_df["finish_y"].notna()
-        ]
-        for _, row in valid_links.iterrows():
-            x1, y1 = pitch_to_plot(float(row["assist_x"]), float(row["assist_y"]))
-            x2, y2 = pitch_to_plot(float(row["finish_x"]), float(row["finish_y"]))
-            ax.plot([x1, x2], [y1, y2], color=(1, 1, 1, 0.34), lw=1.8, zorder=5)
-
-        if show_assist_points and not valid_links.empty:
-            assist_xy = [
-                canonical_to_dashboard_xy(row["assist_x"], row["assist_y"])
-                for _, row in valid_links.iterrows()
+    if chart_df is not None and not chart_df.empty:
+        # Draw connecting lines only where both assist and finish exist.
+        if connect_assists:
+            valid_links = chart_df[
+                chart_df["assist_x"].notna() & chart_df["assist_y"].notna() &
+                chart_df["finish_x"].notna() & chart_df["finish_y"].notna()
             ]
-            ax.scatter(
-                [p[0] for p in assist_xy],
-                [p[1] for p in assist_xy],
-                s=34, c="#ffffff", alpha=0.85, edgecolors="none", zorder=6
-            )
+            for _, row in valid_links.iterrows():
+                x1, y1 = pitch_to_plot(float(row["assist_x"]), float(row["assist_y"]))
+                x2, y2 = pitch_to_plot(float(row["finish_x"]), float(row["finish_y"]))
+                ax.plot(
+                    [x1, x2], [y1, y2],
+                    color=(1, 1, 1, 0.38),
+                    lw=1.9,
+                    zorder=5
+                )
+
+        # Assist points are rendered independently from the links.
+        # This ensures an assist remains visible even when no finish-link can
+        # be drawn or when markers overlap.
+        if show_assist_points and "assist_x" in chart_df.columns and "assist_y" in chart_df.columns:
+            valid_assists = chart_df[
+                chart_df["assist_x"].notna() & chart_df["assist_y"].notna()
+            ]
+            if not valid_assists.empty:
+                assist_xy = [
+                    canonical_to_dashboard_xy(row["assist_x"], row["assist_y"])
+                    for _, row in valid_assists.iterrows()
+                ]
+                ax.scatter(
+                    [p[0] for p in assist_xy],
+                    [p[1] for p in assist_xy],
+                    s=62,
+                    c="#ffffff",
+                    alpha=1.0,
+                    edgecolors="#1a1a1a",
+                    linewidths=1.4,
+                    zorder=9
+                )
 
     coord_prefix = "assist" if point_mode == "assist" else "finish"
     if chart_df is not None and not chart_df.empty:
@@ -885,10 +904,13 @@ def draw_half_pitch(
                 if point_mode == "finish" and finish_marker_color
                 else point_color
             )
+            point_size = 76 if point_mode == "assist" else 58
+            edge_color = "#202020" if point_mode == "assist" else "#f0f0f0"
+            edge_width = 1.5 if point_mode == "assist" else 1.2
             ax.scatter(
                 x_plot, y_plot,
-                s=58, c=marker_color, edgecolors="#f0f0f0",
-                linewidths=1.2, zorder=7
+                s=point_size, c=marker_color, edgecolors=edge_color,
+                linewidths=edge_width, zorder=10 if point_mode == "assist" else 7
             )
 
     ax.set_title(title, color="white", fontsize=19, pad=18, weight="bold")
@@ -1876,11 +1898,22 @@ else:
         plt.close(fig2)
 
     # Compact stats beneath the two main charts
+    assists_for_count = (
+        int(goals_team["assist_x"].notna().sum())
+        if not goals_team.empty and "assist_x" in goals_team.columns
+        else 0
+    )
+    assists_against_count = (
+        int(against_team["assist_x"].notna().sum())
+        if not against_team.empty and "assist_x" in against_team.columns
+        else 0
+    )
+
     s1, s2, s3, s4 = st.columns(4)
     s1.metric(f"{team} Tore", len(goals_team))
     s2.metric(f"{team} Gegentore", len(against_team))
-    s3.metric(f"{team} Tore gesamt", len(goals_team))
-    s4.metric(f"{team} Gegentore gesamt", len(against_team))
+    s3.metric("Assists eigene Tore", assists_for_count)
+    s4.metric("Assists Gegentore", assists_against_count)
 
     st.divider()
     render_touch_analysis(goals_team, f"{team} – Torabschluss nach Kontakten")
