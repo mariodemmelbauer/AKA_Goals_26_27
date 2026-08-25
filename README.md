@@ -251,3 +251,7 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 - neue Torzeit-Auswertung pro Mannschaft und im Gesamt-Dashboard
 - Zeitfenster: 1–25, 26–45, 46–75, 76–90
 - Tore und Gegentore werden je Zeitfenster getrennt dargestellt
+
+## Neu in v34
+- Bugfix: Erfassungs-Spielfeld und Szenen-Editor zeigen jetzt wirklich das vertikale Pitch-Bild
+- Angriffsrichtung bei Erfassung/Bearbeitung sichtbar als von unten nach oben

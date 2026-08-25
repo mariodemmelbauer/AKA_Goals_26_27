@@ -632,7 +632,7 @@ def apply_set_piece_points(points, set_piece_type, click_count):
 
 def build_annotated_pitch(points, key_suffix):
     """Create a temporary pitch image with visible event points and connecting lines."""
-    base_path = Path(__file__).parent / "assets" / "pitch.png"
+    base_path = Path(__file__).parent / "assets" / "pitch_vertical.png"
     image = Image.open(base_path).convert("RGB")
     draw = ImageDraw.Draw(image)
 
@@ -980,6 +980,7 @@ def render_event_editor(event):
     )
 
     annotated = build_annotated_pitch(points, f"edit_{event_id}_{st.session_state[nonce_key]}")
+    st.caption("Angriffsrichtung bei der Bearbeitung: **von unten nach oben**")
     st.caption(
         f"Klicke auf die neue Position für **{edit_labels[point_to_edit]}**. "
         "Die anderen beiden Punkte bleiben unverändert."
@@ -1557,6 +1558,7 @@ elif page == "Tor / Gegentor erfassen":
     next_step = next((k for k, _ in steps if points[k] is None), None)
 
     st.subheader("Spielfeld")
+    st.caption("Angriffsrichtung bei der Erfassung: **von unten nach oben**")
     pitch_key = f"{match['id']}_{event_type}_{sum(1 for p in points.values() if p)}"
     annotated_pitch = build_annotated_pitch(points, pitch_key)
 
