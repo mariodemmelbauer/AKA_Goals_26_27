@@ -281,3 +281,10 @@ key = "YOUR_SERVER_SIDE_SECRET_KEY"
 - weiße Assist-Punkte größer und mit hohem z-order
 - Standalone-Assist-Grafiken ebenfalls mit besser sichtbaren Markern
 - Team-Dashboard zeigt Assist-Anzahl für eigene Tore und Gegentore direkt in den Kennzahlen
+
+## Neu in v39
+- obere Hauptgrafiken zeigen bei Tore und Gegentore nur den Abschluss
+- zusätzliche zwei Grafiken darunter:
+  - Tore: Assist + Abschluss
+  - Gegentore: Assist + Abschluss
+- gilt im Team-Dashboard und im Gesamt-Dashboard

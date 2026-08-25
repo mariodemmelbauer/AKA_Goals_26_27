@@ -1765,7 +1765,7 @@ elif page == "Gesamt Dashboard":
     g2.metric("Gegentore alle Teams", len(against_all))
     g3.metric("Differenz", len(goals_all) - len(against_all))
 
-    st.caption("🔴 Abschluss · ⚪ Assist / letzter Pass · Linie = zugehörige Szene")
+    st.caption("Oben: nur Abschlüsse")
     p1, p2 = st.columns(2, gap="small")
     with p1:
         st.markdown('<div class="aka-section-title">Alle Teams - Eigene Tore</div>', unsafe_allow_html=True)
@@ -1773,8 +1773,6 @@ elif page == "Gesamt Dashboard":
             goals_all,
             "Alle Teams - Eigene Tore",
             point_color="#5cff67",
-            connect_assists=True,
-            show_assist_points=True,
             finish_marker_color="#dc2828"
         )
         st.pyplot(fig_all_goals, use_container_width=True)
@@ -1786,12 +1784,38 @@ elif page == "Gesamt Dashboard":
             against_all,
             "Alle Teams - Gegentore",
             point_color="#ff6262",
+            mirror=True
+        )
+        st.pyplot(fig_all_against, use_container_width=True)
+        plt.close(fig_all_against)
+
+    st.caption("Unten: Assist / letzter Pass + Abschluss")
+    p3, p4 = st.columns(2, gap="small")
+    with p3:
+        st.markdown('<div class="aka-section-title">Alle Teams - Tore: Assist + Abschluss</div>', unsafe_allow_html=True)
+        fig_all_goals_links = create_dashboard_figure(
+            goals_all,
+            "Alle Teams - Tore: Assist + Abschluss",
+            point_color="#5cff67",
+            connect_assists=True,
+            show_assist_points=True,
+            finish_marker_color="#dc2828"
+        )
+        st.pyplot(fig_all_goals_links, use_container_width=True)
+        plt.close(fig_all_goals_links)
+
+    with p4:
+        st.markdown('<div class="aka-section-title">Alle Teams - Gegentore: Assist + Abschluss</div>', unsafe_allow_html=True)
+        fig_all_against_links = create_dashboard_figure(
+            against_all,
+            "Alle Teams - Gegentore: Assist + Abschluss",
+            point_color="#ff6262",
             mirror=True,
             connect_assists=True,
             show_assist_points=True
         )
-        st.pyplot(fig_all_against, use_container_width=True)
-        plt.close(fig_all_against)
+        st.pyplot(fig_all_against_links, use_container_width=True)
+        plt.close(fig_all_against_links)
 
     st.divider()
     render_touch_analysis(goals_all, "Alle Teams – Torabschluss nach Kontakten")
@@ -1868,7 +1892,7 @@ else:
     against_all = df_all[df_all["event_type"] == "Gegentor"].copy()
     goals_all = df_all[df_all["event_type"] == "Tor"].copy()
 
-    st.caption("🔴 Abschluss · ⚪ Assist / letzter Pass · Linie = zugehörige Szene")
+    st.caption("Oben: nur Abschlüsse")
     c1, c2 = st.columns(2, gap="small")
 
     with c1:
@@ -1877,8 +1901,6 @@ else:
             goals_team,
             f"{team} - Eigene Tore",
             point_color="#4cff42",
-            connect_assists=True,
-            show_assist_points=True,
             finish_marker_color="#dc2828"
         )
         st.pyplot(fig1, use_container_width=True)
@@ -1890,12 +1912,38 @@ else:
             against_team,
             f"{team} - Gegentore",
             point_color="#ff5656",
+            mirror=True
+        )
+        st.pyplot(fig2, use_container_width=True)
+        plt.close(fig2)
+
+    st.caption("Unten: Assist / letzter Pass + Abschluss")
+    c3, c4 = st.columns(2, gap="small")
+    with c3:
+        st.markdown(f'<div class="aka-section-title">{team} - Tore: Assist + Abschluss</div>', unsafe_allow_html=True)
+        fig1_links = create_dashboard_figure(
+            goals_team,
+            f"{team} - Tore: Assist + Abschluss",
+            point_color="#4cff42",
+            connect_assists=True,
+            show_assist_points=True,
+            finish_marker_color="#dc2828"
+        )
+        st.pyplot(fig1_links, use_container_width=True)
+        plt.close(fig1_links)
+
+    with c4:
+        st.markdown(f'<div class="aka-section-title">{team} - Gegentore: Assist + Abschluss</div>', unsafe_allow_html=True)
+        fig2_links = create_dashboard_figure(
+            against_team,
+            f"{team} - Gegentore: Assist + Abschluss",
+            point_color="#ff5656",
             mirror=True,
             connect_assists=True,
             show_assist_points=True
         )
-        st.pyplot(fig2, use_container_width=True)
-        plt.close(fig2)
+        st.pyplot(fig2_links, use_container_width=True)
+        plt.close(fig2_links)
 
     # Compact stats beneath the two main charts
     assists_for_count = (
