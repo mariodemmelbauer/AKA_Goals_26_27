@@ -692,11 +692,14 @@ def render_dashboard_header():
 
 def zone_bucket(x, y):
     """
-    Assign the point to the SAME tactical zones that are drawn in the dashboard.
+    Complete, non-overlapping partition of the attacking half.
 
-    Input coordinates are canonical 0..100 pitch coordinates.
-    Classification is done on the converted dashboard metre coordinates so that
-    the percentage badges always match the visual graphics exactly.
+    The seven dashboard percentages must always classify every valid point
+    into exactly one displayed category, so the percentages sum to 100%.
+
+    Dashboard coordinates:
+      plot_x = field width 0..68 m
+      plot_y = distance from opponent goal line 0..52.5 m
     """
     if pd.isna(x) or pd.isna(y):
         return "Rest"
@@ -705,31 +708,29 @@ def zone_bucket(x, y):
     if mapped is None:
         return "Rest"
 
-    plot_x, plot_y = mapped  # x = field width in metres, y = distance from goal line
+    plot_x, plot_y = mapped
 
-    # Same geometry as draw_half_pitch():
-    # Yellow central box zone: Rectangle((25.0, 0), 18.0, 16.5)
-    if 25.0 <= plot_x <= 43.0 and 0.0 <= plot_y <= 16.5:
-        return "Box zentral"
-
-    # Red Zone 14: Rectangle((25.0, 16.5), 18.0, 8.2)
-    if 25.0 <= plot_x <= 43.0 and 16.5 < plot_y <= 24.7:
-        return "Zone 14"
-
-    # Left / right halfspaces: between outer box edge and central zone edge,
-    # in the upper attacking band up to the edge of the box zone.
-    if 13.84 <= plot_x < 25.0 and 5.5 <= plot_y <= 16.5:
-        return "Halbraum links"
-    if 43.0 < plot_x <= 54.16 and 5.5 <= plot_y <= 16.5:
+    # Final 16.5 m:
+    # central channel = Box zentral
+    # lateral channels = Halbraum links/rechts
+    if 0.0 <= plot_y <= 16.5:
+        if plot_x < 25.0:
+            return "Halbraum links"
+        if plot_x <= 43.0:
+            return "Box zentral"
         return "Halbraum rechts"
 
-    # Left / right wings: outside the penalty area width but within the final
-    # attacking band shown next to the halfspaces.
-    if 0.0 <= plot_x < 13.84 and 10.0 <= plot_y <= 24.5:
-        return "Flügel links"
-    if 54.16 < plot_x <= 68.0 and 10.0 <= plot_y <= 24.5:
+    # 16.5 m to 24.7 m:
+    # central channel = Zone 14
+    # lateral channels = Flügel links/rechts
+    if 16.5 < plot_y <= 24.7:
+        if plot_x < 25.0:
+            return "Flügel links"
+        if plot_x <= 43.0:
+            return "Zone 14"
         return "Flügel rechts"
 
+    # Everything deeper than the highlighted attacking zones.
     return "Distanz"
 
 

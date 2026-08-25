@@ -325,3 +325,11 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
 - Pitch-Grafik für die Torerfassung komplett sauber neu gezeichnet
 - Strafraum-Halbkreise (Penalty Arcs) korrekt positioniert und orientiert
 - horizontale und vertikale Pitch-Datei neu erzeugt
+
+## Neu in v46
+- Prozentzonen als vollständige, überschneidungsfreie Aufteilung korrigiert
+- seitliche Punkte zwischen 16,5 m und 24,7 m zählen jetzt korrekt als Flügel links/rechts
+- seitliche Punkte innerhalb 16,5 m zählen als Halbraum links/rechts
+- zentral: Box zentral bzw. Zone 14
+- tiefere Abschlüsse: Distanz
+- jeder gültige Punkt gehört exakt einer Kategorie an; Summe = 100 %
