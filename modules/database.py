@@ -48,6 +48,7 @@ def backend_name():
     return "Supabase / PostgreSQL" if using_supabase() else "SQLite (lokal)"
 
 
+@st.cache_resource
 def init_db():
     """
     Supabase schema is created once via schema.sql in the Supabase SQL Editor.
@@ -180,6 +181,7 @@ def create_match(data):
 
     if using_supabase():
         result = _supabase().table("matches").insert(row).execute()
+        st.cache_data.clear()
         return result.data[0]
 
     con = sqlite3.connect(DB_PATH)
@@ -197,9 +199,11 @@ def create_match(data):
     row["id"] = cur.lastrowid
     con.commit()
     con.close()
+    st.cache_data.clear()
     return row
 
 
+@st.cache_data(ttl=60, show_spinner=False)
 def get_matches(team=None):
     if using_supabase():
         q = _supabase().table("matches").select("*").order(
@@ -229,6 +233,7 @@ def insert_event(data):
 
     if using_supabase():
         result = _supabase().table("goal_events").insert(row).execute()
+        st.cache_data.clear()
         return result.data[0]
 
     cols = list(row.keys())
@@ -243,9 +248,11 @@ def insert_event(data):
     row["id"] = cur.lastrowid
     con.commit()
     con.close()
+    st.cache_data.clear()
     return row
 
 
+@st.cache_data(ttl=60, show_spinner=False)
 def get_events(team=None, match_id=None):
     if using_supabase():
         q = _supabase().table("goal_events").select("*").order(
@@ -278,12 +285,14 @@ def get_events(team=None, match_id=None):
 def delete_event(event_id):
     if using_supabase():
         _supabase().table("goal_events").delete().eq("id", event_id).execute()
+        st.cache_data.clear()
         return True
 
     con = sqlite3.connect(DB_PATH)
     con.execute("DELETE FROM goal_events WHERE id=?", (event_id,))
     con.commit()
     con.close()
+    st.cache_data.clear()
     return True
 
 
@@ -292,9 +301,11 @@ def update_event(event_id, data):
         return True
 
     if using_supabase():
-        return _supabase().table("goal_events").update(
+        result = _supabase().table("goal_events").update(
             dict(data)
         ).eq("id", event_id).execute().data
+        st.cache_data.clear()
+        return result
 
     cols = list(data.keys())
     values = [data[c] for c in cols]
@@ -307,6 +318,7 @@ def update_event(event_id, data):
     )
     con.commit()
     con.close()
+    st.cache_data.clear()
     return True
 
 
@@ -314,6 +326,7 @@ def delete_match(match_id):
     if using_supabase():
         # goal_events are removed automatically by FK ON DELETE CASCADE.
         _supabase().table("matches").delete().eq("id", match_id).execute()
+        st.cache_data.clear()
         return True
 
     con = sqlite3.connect(DB_PATH)
@@ -322,4 +335,5 @@ def delete_match(match_id):
     con.execute("DELETE FROM matches WHERE id=?", (match_id,))
     con.commit()
     con.close()
+    st.cache_data.clear()
     return True

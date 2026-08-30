@@ -551,7 +551,7 @@ PENALTY_SPOT_X = round((105.0 - 11.0) / 105.0 * 100.0, 2)
 PENALTY_SPOT = (PENALTY_SPOT_X, 50.0)
 CORNER_LEFT = (100.0, 0.0)
 CORNER_RIGHT = (100.0, 100.0)
-SET_PIECE_OPTIONS = ["Keine", "Eckball links", "Eckball rechts", "Elfmeter"]
+SET_PIECE_OPTIONS = ["Keine", "Eckball links", "Eckball rechts", "Direkter Freistoß", "Elfmeter"]
 
 
 def image_click_to_pitch(click, rendered_width=PITCH_CAPTURE_WIDTH):
@@ -634,11 +634,21 @@ def build_annotated_pitch(points, key_suffix):
     image = Image.open(base_path).convert("RGB")
     draw = ImageDraw.Draw(image)
 
-    ordered = [
-        ("start", "1", (255, 215, 0)),
-        ("assist", "2", (255, 255, 255)),
-        ("finish", "3", (220, 40, 40)),
-    ]
+    if points.get("start") is not None:
+        ordered = [
+            ("start", "1", (255, 215, 0)),
+            ("assist", "2", (255, 255, 255)),
+            ("finish", "3", (220, 40, 40)),
+        ]
+    elif points.get("assist") is not None:
+        ordered = [
+            ("assist", "1", (255, 255, 255)),
+            ("finish", "2", (220, 40, 40)),
+        ]
+    else:
+        ordered = [
+            ("finish", "1", (220, 40, 40)),
+        ]
 
     coords = []
     for point_key, number, color in ordered:
@@ -1056,22 +1066,30 @@ def render_event_editor(event):
         st.info("Elfmeter: Abschluss ist automatisch am Elfmeterpunkt gesetzt.")
     elif edit_set_piece.startswith("Eckball"):
         st.info("Eckball: Assistpunkt ist automatisch am gewählten Eckpunkt gesetzt.")
-
-    edit_labels = {
-        "start": "1 · Angriffsbeginn",
-        "assist": "2 · Assist / letzter Pass",
-        "finish": "3 · Abschluss",
-    }
+    elif edit_set_piece == "Direkter Freistoß":
+        st.info("Direkter Freistoß: Position(en) können frei gesetzt werden.")
 
     if edit_click_count == 1:
         active_edit_points = ["finish"]
+        edit_labels = {
+            "finish": "1 · Abschluss",
+        }
         points["start"] = None
         points["assist"] = None
     elif edit_click_count == 2:
         active_edit_points = ["assist", "finish"]
+        edit_labels = {
+            "assist": "1 · Assist / letzter Pass",
+            "finish": "2 · Abschluss",
+        }
         points["start"] = None
     else:
         active_edit_points = ["start", "assist", "finish"]
+        edit_labels = {
+            "start": "1 · Angriffsbeginn",
+            "assist": "2 · Assist / letzter Pass",
+            "finish": "3 · Abschluss",
+        }
 
     point_to_edit = st.radio(
         "Welchen Punkt möchtest du versetzen?",
@@ -1158,8 +1176,9 @@ def render_event_editor(event):
         )
 
     phase_options = [
-        "Organisierter Ballbesitz",
+        "Kontrollierter Spielaufbau",
         "Umschalten nach Ballgewinn",
+        "Umschalten nach Ballverlust",
         "Standard",
         "Zweiter Ball",
         "Sonstiges",
@@ -1535,6 +1554,10 @@ if page == "Spiel anlegen":
     st.divider()
     st.markdown("### Angelegte Spiele")
     existing_matches = get_matches(team)
+    team_match_events = get_events(team=team) if existing_matches else []
+    events_by_match = {}
+    for ev in team_match_events:
+        events_by_match.setdefault(ev.get("match_id"), []).append(ev)
 
     if not existing_matches:
         st.caption("Noch keine Spiele angelegt.")
@@ -1548,7 +1571,7 @@ if page == "Spiel anlegen":
                     st.caption(f"{m.get('competition') or '-'} · {m.get('home_away') or '-'}")
 
                 with mc2:
-                    match_events = get_events(team=team, match_id=m["id"])
+                    match_events = events_by_match.get(m["id"], [])
                     goals_count = sum(1 for e in match_events if e["event_type"] == "Tor")
                     against_count = sum(1 for e in match_events if e["event_type"] == "Gegentor")
                     st.write(f"⚽ {goals_count} : {against_count} 🥅")
@@ -1595,7 +1618,10 @@ if page == "Spiel anlegen":
 
 elif page == "Tor / Gegentor erfassen":
     st.title(f"{team} · Tor / Gegentor erfassen")
-    matches = get_matches(team)
+    matches = sorted(
+        get_matches(team),
+        key=lambda m: (m.get("match_date") or "", str(m.get("id") or ""))
+    )
     if not matches:
         st.warning("Für dieses Team gibt es noch kein Spiel. Bitte zuerst ein Spiel anlegen.")
         st.stop()
@@ -1649,6 +1675,8 @@ elif page == "Tor / Gegentor erfassen":
         st.info("Eckball links: Assistpunkt wird automatisch am linken Eckpunkt gesetzt.")
     elif set_piece_type == "Eckball rechts":
         st.info("Eckball rechts: Assistpunkt wird automatisch am rechten Eckpunkt gesetzt.")
+    elif set_piece_type == "Direkter Freistoß":
+        st.info("Direkter Freistoß: Position(en) werden frei auf dem Spielfeld gesetzt.")
 
     click_count = effective_click_count
 
@@ -1735,8 +1763,12 @@ elif page == "Tor / Gegentor erfassen":
         )
     with c2:
         phase = st.selectbox("Spielphase", [
-            "Organisierter Ballbesitz", "Umschalten nach Ballgewinn",
-            "Standard", "Zweiter Ball", "Sonstiges"
+            "Kontrollierter Spielaufbau",
+            "Umschalten nach Ballgewinn",
+            "Umschalten nach Ballverlust",
+            "Standard",
+            "Zweiter Ball",
+            "Sonstiges"
         ])
         creation_type = st.selectbox("Entstehung", [
             "Steckpass", "Flanke", "Cutback", "Dribbling",
@@ -1871,8 +1903,7 @@ elif page == "Gesamt Dashboard":
     st.markdown("### Vergleich nach Mannschaft")
     team_rows = []
     for summary_team in TEAMS:
-        ev = get_events(summary_team)
-        tdf = pd.DataFrame(ev) if ev else pd.DataFrame()
+        tdf = df_all[df_all["team"] == summary_team].copy() if "team" in df_all.columns else pd.DataFrame()
         if tdf.empty:
             team_goals = team_against = assists_for = assists_against = one = two = more = 0
         else:
@@ -1904,14 +1935,18 @@ else:
     render_dashboard_header()
 
     all_events = get_events()
-    team_events = get_events(team)
 
     if not all_events:
         st.info("Noch keine Tore/Gegentore erfasst.")
         st.stop()
 
     df_all = pd.DataFrame(all_events)
-    df_team = pd.DataFrame(team_events) if team_events else pd.DataFrame(columns=df_all.columns)
+    df_team = (
+        df_all[df_all["team"] == team].copy()
+        if "team" in df_all.columns
+        else pd.DataFrame(columns=df_all.columns)
+    )
+    team_events = df_team.to_dict("records") if not df_team.empty else []
 
     goals_team = df_team[df_team["event_type"] == "Tor"].copy() if not df_team.empty else pd.DataFrame(columns=df_all.columns)
     against_team = df_team[df_team["event_type"] == "Gegentor"].copy() if not df_team.empty else pd.DataFrame(columns=df_all.columns)

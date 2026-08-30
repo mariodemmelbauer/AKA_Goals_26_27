@@ -333,3 +333,14 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
 - zentral: Box zentral bzw. Zone 14
 - tiefere Abschlüsse: Distanz
 - jeder gültige Punkt gehört exakt einer Kategorie an; Summe = 100 %
+
+## Neu in v47
+- Spielauswahl bei Tor/Gegentor-Erfassung nach Datum aufsteigend
+- Punktnummerierung dynamisch: 1 Klick = 1; 2 Klicks = 1+2; 3 Klicks = 1+2+3
+- Standardsituation `Direkter Freistoß`
+- Spielphasen: Kontrollierter Spielaufbau, Umschalten nach Ballgewinn, Umschalten nach Ballverlust
+- Performance: Supabase-Leseabfragen 60 Sekunden gecacht und nach Änderungen invalidiert
+- Performance: Team-Dashboard vermeidet doppelte Event-Abfrage
+- Performance: Gesamtvergleich filtert bereits geladene Daten statt je Team erneut Supabase abzufragen
+- Performance: Spielverwaltung lädt Ereignisse einmal statt einmal je Spiel
+- Performance: Supabase-Verbindungscheck wird als Resource gecacht
