@@ -344,3 +344,9 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
 - Performance: Gesamtvergleich filtert bereits geladene Daten statt je Team erneut Supabase abzufragen
 - Performance: Spielverwaltung lädt Ereignisse einmal statt einmal je Spiel
 - Performance: Supabase-Verbindungscheck wird als Resource gecacht
+
+## Neu in v48
+- Standardsituation Elfmeter für Gegentor korrigiert
+- eigenes Tor: Abschluss bleibt automatisch am oberen Elfmeterpunkt
+- Gegentor: Abschluss wird automatisch am unteren Elfmeterpunkt gesetzt
+- gilt in Tor/Gegentor-Erfassung und im Szenen-Editor

@@ -547,8 +547,10 @@ PITCH_TOP = 35
 PITCH_BOTTOM = 965
 PITCH_CAPTURE_WIDTH = 620
 
-PENALTY_SPOT_X = round((105.0 - 11.0) / 105.0 * 100.0, 2)
-PENALTY_SPOT = (PENALTY_SPOT_X, 50.0)
+ATTACKING_PENALTY_SPOT_X = round((105.0 - 11.0) / 105.0 * 100.0, 2)
+DEFENDING_PENALTY_SPOT_X = round(11.0 / 105.0 * 100.0, 2)
+PENALTY_SPOT = (ATTACKING_PENALTY_SPOT_X, 50.0)
+OPPONENT_PENALTY_SPOT = (DEFENDING_PENALTY_SPOT_X, 50.0)
 CORNER_LEFT = (100.0, 0.0)
 CORNER_RIGHT = (100.0, 100.0)
 SET_PIECE_OPTIONS = ["Keine", "Eckball links", "Eckball rechts", "Direkter Freistoß", "Elfmeter"]
@@ -600,11 +602,12 @@ def pitch_to_image_xy(point, image_width=PITCH_IMAGE_W, image_height=PITCH_IMAGE
     return int(round(px)), int(round(py))
 
 
-def apply_set_piece_points(points, set_piece_type, click_count):
+def apply_set_piece_points(points, set_piece_type, click_count, event_type="Tor"):
     points = dict(points)
 
     if set_piece_type == "Elfmeter":
-        points["finish"] = PENALTY_SPOT
+        penalty_spot = OPPONENT_PENALTY_SPOT if event_type == "Gegentor" else PENALTY_SPOT
+        points["finish"] = penalty_spot
         points["start"] = None
         points["assist"] = None
         return points, 1
@@ -1059,11 +1062,11 @@ def render_event_editor(event):
         key=f"edit_set_piece_{event_id}",
     )
 
-    points, edit_click_count = apply_set_piece_points(points, edit_set_piece, edit_click_count)
+    points, edit_click_count = apply_set_piece_points(points, edit_set_piece, edit_click_count, event.get("event_type", "Tor"))
     st.session_state[points_key] = points
 
     if edit_set_piece == "Elfmeter":
-        st.info("Elfmeter: Abschluss ist automatisch am Elfmeterpunkt gesetzt.")
+        st.info("Elfmeter: Bei Tor am oberen Elfmeterpunkt, bei Gegentor am unteren Elfmeterpunkt gesetzt.")
     elif edit_set_piece.startswith("Eckball"):
         st.info("Eckball: Assistpunkt ist automatisch am gewählten Eckpunkt gesetzt.")
     elif edit_set_piece == "Direkter Freistoß":
@@ -1666,11 +1669,11 @@ elif page == "Tor / Gegentor erfassen":
         st.session_state[state_key] = {"start": None, "assist": None, "finish": None}
 
     points = st.session_state[state_key]
-    points, effective_click_count = apply_set_piece_points(points, set_piece_type, click_count)
+    points, effective_click_count = apply_set_piece_points(points, set_piece_type, click_count, event_type)
     st.session_state[state_key] = points
 
     if set_piece_type == "Elfmeter":
-        st.info("Elfmeter: Abschlussposition wird automatisch am Elfmeterpunkt gesetzt.")
+        st.info("Elfmeter: Bei Tor am oberen Elfmeterpunkt, bei Gegentor am unteren Elfmeterpunkt gesetzt.")
     elif set_piece_type == "Eckball links":
         st.info("Eckball links: Assistpunkt wird automatisch am linken Eckpunkt gesetzt.")
     elif set_piece_type == "Eckball rechts":
