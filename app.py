@@ -1043,6 +1043,82 @@ def render_event_editor(event):
     st.markdown("---")
     st.markdown(f"## Szene bearbeiten · {event['event_type']} {event.get('minute') or '-'}'")
 
+    st.markdown("### Zuordnung")
+    z1, z2, z3 = st.columns([1.15, 2.4, 0.8])
+
+    current_team = event.get("team") if event.get("team") in TEAMS else TEAMS[0]
+    with z1:
+        edit_team = st.selectbox(
+            "Mannschaft",
+            TEAMS,
+            index=TEAMS.index(current_team),
+            key=f"edit_team_{event_id}",
+        )
+
+    target_matches = sorted(
+        get_matches(edit_team),
+        key=lambda m: (m.get("match_date") or "", str(m.get("id") or ""))
+    )
+
+    with z2:
+        if target_matches:
+            match_ids = [m["id"] for m in target_matches]
+
+            current_match_id = event.get("match_id")
+            default_match_id = current_match_id if current_match_id in match_ids else None
+
+            # If the team was changed, try to find the corresponding match by
+            # date + opponent before falling back to the first match.
+            if default_match_id is None:
+                old_matches = get_matches(current_team)
+                old_match = next(
+                    (m for m in old_matches if m.get("id") == current_match_id),
+                    None
+                )
+                if old_match:
+                    same_fixture = next(
+                        (
+                            m for m in target_matches
+                            if m.get("match_date") == old_match.get("match_date")
+                            and (m.get("opponent") or "").strip().lower()
+                                == (old_match.get("opponent") or "").strip().lower()
+                        ),
+                        None
+                    )
+                    if same_fixture:
+                        default_match_id = same_fixture["id"]
+
+            if default_match_id is None:
+                default_match_id = match_ids[0]
+
+            edit_match_id = st.selectbox(
+                "Spiel",
+                match_ids,
+                index=match_ids.index(default_match_id),
+                format_func=lambda mid: next(
+                    (
+                        f"{m.get('match_date') or '-'} · {m.get('opponent') or '-'}"
+                        f" · {m.get('competition') or '-'}"
+                        for m in target_matches if m["id"] == mid
+                    ),
+                    str(mid)
+                ),
+                key=f"edit_match_{event_id}_{edit_team}",
+            )
+        else:
+            edit_match_id = None
+            st.warning(f"Für {edit_team} ist noch kein Spiel angelegt.")
+
+    with z3:
+        edit_minute = st.number_input(
+            "Minute",
+            min_value=0,
+            max_value=130,
+            value=int(event.get("minute") or 0),
+            step=1,
+            key=f"edit_minute_top_{event_id}",
+        )
+
     current_click_count = int(event.get("click_count") or 3)
     edit_click_count = st.radio(
         "Punkte der Szene",
@@ -1150,14 +1226,6 @@ def render_event_editor(event):
     ec1, ec2, ec3 = st.columns(3)
 
     with ec1:
-        edit_minute = st.number_input(
-            "Minute",
-            min_value=0,
-            max_value=130,
-            value=int(event.get("minute") or 0),
-            step=1,
-            key=f"edit_minute_{event_id}",
-        )
         edit_scorer = st.text_input(
             "Torschütze" if event["event_type"] == "Tor" else "Gegnerischer Torschütze",
             value=event.get("scorer") or "",
@@ -1247,8 +1315,12 @@ def render_event_editor(event):
             required_keys = active_edit_points
             if not all(points.get(k) is not None for k in required_keys):
                 st.error("Bitte alle gewählten Punkte setzen.")
+            elif edit_match_id is None:
+                st.error("Für die gewählte Mannschaft muss zuerst ein Spiel angelegt werden.")
             else:
                 update_event(event_id, {
+                    "team": edit_team,
+                    "match_id": edit_match_id,
                     "minute": int(edit_minute),
                     "scorer": edit_scorer.strip(),
                     "assister": edit_assister.strip(),
@@ -1273,7 +1345,7 @@ def render_event_editor(event):
                 st.session_state.pop(points_key, None)
                 st.session_state.pop(nonce_key, None)
                 st.session_state.pop("editing_event_id", None)
-                st.success("Szene aktualisiert.")
+                st.success("Szene aktualisiert – Mannschaft, Spiel und Minute wurden übernommen.")
                 st.rerun()
 
     with a2:

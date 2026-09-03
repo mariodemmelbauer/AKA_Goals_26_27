@@ -350,3 +350,11 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
 - eigenes Tor: Abschluss bleibt automatisch am oberen Elfmeterpunkt
 - Gegentor: Abschluss wird automatisch am unteren Elfmeterpunkt gesetzt
 - gilt in Tor/Gegentor-Erfassung und im Szenen-Editor
+
+## Neu in v49
+- Szene bearbeiten: Mannschaft kann geändert werden
+- beim Mannschaftswechsel wird ein Spiel der Zielmannschaft ausgewählt
+- passendes Spiel wird nach Möglichkeit automatisch über Datum + Gegner gefunden
+- Spielminute steht jetzt prominent oben bei der Zuordnung und kann geändert werden
+- beim Speichern werden `team`, `match_id` und `minute` gemeinsam aktualisiert
+- verhindert inkonsistente Zuordnung eines Events zu einem Spiel der falschen Mannschaft
