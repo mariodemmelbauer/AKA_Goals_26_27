@@ -372,3 +372,10 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
 - Speicherbestätigung direkt unter der Überschrift der Tor-/Gegentor-Erfassung
 - zusätzlich Toast-Bestätigung rechts oben
 - Meldung bleibt über den Speichervorgang/Rerun erhalten und wird danach sauber entfernt
+
+## Neu in v52
+- Zeitintervalle `Tore nach Spielminute` je Team angepasst
+- U15: 0–15, 16–30, 31–40, 41–55, 56–70, 71–85
+- U16/U18/JWR/Profis: 0–15, 16–30, 31–45, 46–60, 61–75, 76–95
+- Team-Dashboard verwendet automatisch die passende Einteilung
+- Gesamt-Dashboard behält die bisherige gemeinsame Einteilung, da dort unterschiedliche Spiellängen zusammengefasst werden

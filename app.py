@@ -1501,7 +1501,27 @@ def render_assist_analysis(df, title, mirror=False, full_size=False, always_show
             plt.close(fig)
 
 
-GOAL_TIME_BINS = [
+GOAL_TIME_BINS_U15 = [
+    ("0–15", 0, 15),
+    ("16–30", 16, 30),
+    ("31–40", 31, 40),
+    ("41–55", 41, 55),
+    ("56–70", 56, 70),
+    ("71–85", 71, 85),
+]
+
+GOAL_TIME_BINS_STANDARD = [
+    ("0–15", 0, 15),
+    ("16–30", 16, 30),
+    ("31–45", 31, 45),
+    ("46–60", 46, 60),
+    ("61–75", 61, 75),
+    ("76–95", 76, 95),
+]
+
+# Gesamt-Dashboard bleibt bewusst bei den bisherigen vier Gesamtintervallen,
+# weil dort U15 und 90-Minuten-Mannschaften gemeinsam ausgewertet werden.
+GOAL_TIME_BINS_ALL = [
     ("1–25", 1, 25),
     ("26–45", 26, 45),
     ("46–75", 46, 75),
@@ -1509,17 +1529,26 @@ GOAL_TIME_BINS = [
 ]
 
 
-def goal_time_summary(df):
+def goal_time_bins_for_team(team_name=None):
+    if team_name == "U15":
+        return GOAL_TIME_BINS_U15
+    if team_name:
+        return GOAL_TIME_BINS_STANDARD
+    return GOAL_TIME_BINS_ALL
+
+
+def goal_time_summary(df, team_name=None):
+    bins = goal_time_bins_for_team(team_name)
     rows = []
     if df is None or df.empty or "minute" not in df.columns:
-        for label, _, _ in GOAL_TIME_BINS:
+        for label, _, _ in bins:
             rows.append({"Zeitfenster": label, "Tore": 0, "Gegentore": 0})
         return pd.DataFrame(rows)
 
     work = df.copy()
     work["minute"] = pd.to_numeric(work["minute"], errors="coerce")
 
-    for label, start_min, end_min in GOAL_TIME_BINS:
+    for label, start_min, end_min in bins:
         bucket = work[(work["minute"] >= start_min) & (work["minute"] <= end_min)]
         rows.append({
             "Zeitfenster": label,
@@ -1530,12 +1559,12 @@ def goal_time_summary(df):
     return pd.DataFrame(rows)
 
 
-def render_goal_time_analysis(df, title):
+def render_goal_time_analysis(df, title, team_name=None):
     st.markdown(f"### {title}")
-    summary = goal_time_summary(df)
+    summary = goal_time_summary(df, team_name=team_name)
 
     # compact metrics
-    cols = st.columns(4)
+    cols = st.columns(len(summary))
     for col, row in zip(cols, summary.to_dict("records")):
         with col:
             st.metric(
@@ -2148,7 +2177,7 @@ else:
     render_touch_analysis(goals_team, f"{team} – Torabschluss nach Kontakten")
 
     st.divider()
-    render_goal_time_analysis(df_team, f"{team} – Tore nach Spielminute")
+    render_goal_time_analysis(df_team, f"{team} – Tore nach Spielminute", team_name=team)
 
     with st.expander("Weitere Auswertungen", expanded=False):
         d1, d2 = st.columns(2)
