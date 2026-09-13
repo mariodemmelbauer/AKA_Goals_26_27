@@ -1692,6 +1692,9 @@ if page == "Spiel anlegen":
                             st.rerun()
 
 elif page == "Tor / Gegentor erfassen":
+    flash_message = st.session_state.pop("event_saved_flash", None)
+    if flash_message:
+        st.success(flash_message)
     st.title(f"{team} · Tor / Gegentor erfassen")
     matches = sorted(
         get_matches(team),
@@ -1856,29 +1859,49 @@ elif page == "Tor / Gegentor erfassen":
     ready = all(points[k] is not None for k, _ in steps)
     if st.button("Ereignis speichern", type="primary", disabled=not ready):
         s, a, f = points.get("start"), points.get("assist"), points.get("finish")
-        insert_event({
-            "match_id": match["id"], "team": team, "event_type": event_type,
-            "minute": int(minute), "scorer": scorer.strip(), "assister": assister.strip(),
-            "phase": "Standard" if set_piece_type != "Keine" else phase,
-            "creation_type": set_piece_type if set_piece_type != "Keine" else creation_type,
-            "start_x": s[0] if s else None,
-            "start_y": s[1] if s else None,
-            "start_zone": derive_zone(*s) if s else None,
-            "assist_x": a[0] if a else None,
-            "assist_y": a[1] if a else None,
-            "assist_zone": derive_zone(*a) if a else None,
-            "finish_x": f[0] if f else None,
-            "finish_y": f[1] if f else None,
-            "finish_zone": derive_zone(*f) if f else None,
-            "video_url": video_url.strip(), "comment": comment.strip(),
-            "click_count": int(click_count),
-            "finish_touch": finish_touch,
-            "set_piece_type": None if set_piece_type == "Keine" else set_piece_type,
-            "created_by": None,
-        })
-        st.session_state[state_key] = {"start":None,"assist":None,"finish":None}
-        st.success("Gespeichert.")
-        st.rerun()
+        try:
+            insert_event({
+                "match_id": match["id"], "team": team, "event_type": event_type,
+                "minute": int(minute), "scorer": scorer.strip(), "assister": assister.strip(),
+                "phase": "Standard" if set_piece_type != "Keine" else phase,
+                "creation_type": set_piece_type if set_piece_type != "Keine" else creation_type,
+                "start_x": s[0] if s else None,
+                "start_y": s[1] if s else None,
+                "start_zone": derive_zone(*s) if s else None,
+                "assist_x": a[0] if a else None,
+                "assist_y": a[1] if a else None,
+                "assist_zone": derive_zone(*a) if a else None,
+                "finish_x": f[0] if f else None,
+                "finish_y": f[1] if f else None,
+                "finish_zone": derive_zone(*f) if f else None,
+                "video_url": video_url.strip(), "comment": comment.strip(),
+                "click_count": int(click_count),
+                "finish_touch": finish_touch,
+                "set_piece_type": None if set_piece_type == "Keine" else set_piece_type,
+                "created_by": None,
+            })
+        except Exception as exc:
+            error_text = str(exc)
+            if "goal_events_set_piece_type_check" in error_text or "set_piece_type" in error_text:
+                st.error(
+                    "Das Ereignis konnte nicht gespeichert werden, weil die Supabase-"
+                    "Datenbank die gewählte Standardsituation noch nicht akzeptiert. "
+                    "Bitte einmal die Datei supabase_v50_direct_free_kick.sql im "
+                    "Supabase SQL Editor ausführen."
+                )
+            else:
+                st.error(
+                    "Das Ereignis konnte nicht gespeichert werden. "
+                    "Bitte Supabase-Verbindung bzw. Datenbank-Constraints prüfen."
+                )
+        else:
+            st.session_state[state_key] = {"start": None, "assist": None, "finish": None}
+            st.session_state["event_saved_flash"] = (
+                "Tor erfolgreich gespeichert."
+                if event_type == "Tor"
+                else "Gegentor erfolgreich gespeichert."
+            )
+            st.rerun()
 
 elif page == "Gesamt Dashboard":
     render_dashboard_header()

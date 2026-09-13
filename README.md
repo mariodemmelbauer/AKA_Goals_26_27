@@ -358,3 +358,12 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
 - Spielminute steht jetzt prominent oben bei der Zuordnung und kann geändert werden
 - beim Speichern werden `team`, `match_id` und `minute` gemeinsam aktualisiert
 - verhindert inkonsistente Zuordnung eines Events zu einem Spiel der falschen Mannschaft
+
+## Neu in v50
+- Supabase-Fehler beim Speichern von `Direkter Freistoß` behoben
+- `goal_events.set_piece_type` erlaubt nun auch `Direkter Freistoß`
+- Migration `supabase_v50_direct_free_kick.sql` für bestehende Supabase-Datenbank
+- nach erfolgreichem Speichern erscheint dauerhaft nach dem Rerun:
+  - `Tor erfolgreich gespeichert.`
+  - bzw. `Gegentor erfolgreich gespeichert.`
+- Datenbankfehler werden im UI verständlich abgefangen statt mit rohem Stacktrace

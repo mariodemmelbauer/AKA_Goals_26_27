@@ -43,7 +43,9 @@ create table if not exists public.goal_events (
     finish_touch is null or finish_touch in ('One Touch','Two Touch','>2 Touches')
   ),
   set_piece_type text check (
-    set_piece_type is null or set_piece_type in ('Eckball links','Eckball rechts','Elfmeter')
+    set_piece_type is null or set_piece_type in (
+      'Eckball links','Eckball rechts','Direkter Freistoß','Elfmeter'
+    )
   ),
 
   created_by text,
