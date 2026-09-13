@@ -367,3 +367,8 @@ Wichtig: Bei einer bereits bestehenden Supabase-Datenbank einmal
   - `Tor erfolgreich gespeichert.`
   - bzw. `Gegentor erfolgreich gespeichert.`
 - Datenbankfehler werden im UI verständlich abgefangen statt mit rohem Stacktrace
+
+## Neu in v51
+- Speicherbestätigung direkt unter der Überschrift der Tor-/Gegentor-Erfassung
+- zusätzlich Toast-Bestätigung rechts oben
+- Meldung bleibt über den Speichervorgang/Rerun erhalten und wird danach sauber entfernt

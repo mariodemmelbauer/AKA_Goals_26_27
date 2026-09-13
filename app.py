@@ -1692,10 +1692,13 @@ if page == "Spiel anlegen":
                             st.rerun()
 
 elif page == "Tor / Gegentor erfassen":
-    flash_message = st.session_state.pop("event_saved_flash", None)
-    if flash_message:
-        st.success(flash_message)
     st.title(f"{team} · Tor / Gegentor erfassen")
+
+    flash_message = st.session_state.get("event_saved_flash")
+    if flash_message:
+        st.success(f"✅ {flash_message}")
+        st.toast(flash_message, icon="✅")
+        del st.session_state["event_saved_flash"]
     matches = sorted(
         get_matches(team),
         key=lambda m: (m.get("match_date") or "", str(m.get("id") or ""))
@@ -1897,9 +1900,9 @@ elif page == "Tor / Gegentor erfassen":
         else:
             st.session_state[state_key] = {"start": None, "assist": None, "finish": None}
             st.session_state["event_saved_flash"] = (
-                "Tor erfolgreich gespeichert."
+                "Tor wurde erfolgreich gespeichert."
                 if event_type == "Tor"
-                else "Gegentor erfolgreich gespeichert."
+                else "Gegentor wurde erfolgreich gespeichert."
             )
             st.rerun()
 
