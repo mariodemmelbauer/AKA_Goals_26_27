@@ -1,11 +1,18 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-
   "name": "aka-goals-26-27",
-
   "compatibility_date": "2026-09-16",
-
   "main": "./worker/index.ts",
+
+  "vars": {
+    "SUPABASE_URL": "https://zehtmlayrafmmqtgwagj.supabase.co"
+  },
+
+  "secrets": {
+    "required": [
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ]
+  },
 
   "assets": {
     "directory": "./dist",
