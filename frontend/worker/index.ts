@@ -1,14 +1,19 @@
 import {
   createRemoteJWKSet,
   decodeJwt,
-  jwtVerify
+  jwtVerify,
+  type JWTPayload
 } from "jose";
 
 interface Env {
   ASSETS: Fetcher;
+
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
 }
 
 const TENANT_ID = "1fcb46af-c475-4867-8c22-1ada8dd7cfdf";
+
 const CLIENT_ID = "195954d1-452c-40de-8108-e6baf8a12042";
 
 const APP_ID_URI =
@@ -26,117 +31,297 @@ const JWKS_V1 = createRemoteJWKSet(
   )
 );
 
-async function handleMe(request: Request): Promise<Response> {
+
+/* =========================================================
+   TEAMS TOKEN PRÜFEN
+   ========================================================= */
+
+async function validateTeamsToken(
+  request: Request
+): Promise<JWTPayload> {
+
   const authHeader = request.headers.get("Authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
-    return Response.json(
-      { error: "Authorization header missing" },
-      { status: 401 }
-    );
+    throw new Error("Authorization header missing");
   }
 
   const token = authHeader.substring(7);
 
-  try {
-    const unverified = decodeJwt(token);
+  const unverified = decodeJwt(token);
 
-    const version = String(unverified.ver ?? "");
-    const audience = String(unverified.aud ?? "");
-    const issuer = String(unverified.iss ?? "");
-    const tenant = String(unverified.tid ?? "");
+  const version = String(unverified.ver ?? "");
 
-    console.log("Teams token claims:", {
-      ver: version,
-      aud: audience,
-      iss: issuer,
-      tid: tenant
-    });
+  if (version === "2.0") {
 
-    let payload;
+    const result = await jwtVerify(
+      token,
+      JWKS_V2,
+      {
+        issuer:
+          `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
 
-    if (version === "2.0") {
-      const result = await jwtVerify(token, JWKS_V2, {
-        issuer: `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
         audience: CLIENT_ID
-      });
+      }
+    );
 
-      payload = result.payload;
-    } else {
-      const result = await jwtVerify(token, JWKS_V1, {
-        issuer: `https://sts.windows.net/${TENANT_ID}/`,
-        audience: [CLIENT_ID, APP_ID_URI]
-      });
+    return result.payload;
+  }
 
-      payload = result.payload;
+  const result = await jwtVerify(
+    token,
+    JWKS_V1,
+    {
+      issuer:
+        `https://sts.windows.net/${TENANT_ID}/`,
+
+      audience: [
+        CLIENT_ID,
+        APP_ID_URI
+      ]
     }
+  );
+
+  return result.payload;
+}
+
+
+/* =========================================================
+   /api/me
+   ========================================================= */
+
+async function handleMe(
+  request: Request
+): Promise<Response> {
+
+  try {
+
+    const payload =
+      await validateTeamsToken(request);
 
     if (payload.tid !== TENANT_ID) {
+
       return Response.json(
-        { error: "Invalid tenant" },
-        { status: 403 }
+        {
+          authenticated: false,
+          error: "Invalid tenant"
+        },
+        {
+          status: 403
+        }
       );
     }
 
     return Response.json({
       authenticated: true,
-      debug: {
-        ver: payload.ver ?? null,
-        aud: payload.aud ?? null,
-        iss: payload.iss ?? null,
-        tid: payload.tid ?? null
-      },
+
       user: {
-        name: payload.name ?? null,
+        name:
+          payload.name ??
+          null,
+
         username:
           payload.preferred_username ??
           payload.upn ??
           payload.unique_name ??
           null,
-        objectId: payload.oid ?? null,
-        tenantId: payload.tid ?? null
+
+        objectId:
+          payload.oid ??
+          null,
+
+        tenantId:
+          payload.tid ??
+          null
       }
     });
+
   } catch (error) {
-    console.error("Token validation failed:", error);
 
-    let debug = {};
-
-    try {
-      const payload = decodeJwt(token);
-
-      debug = {
-        ver: payload.ver ?? null,
-        aud: payload.aud ?? null,
-        iss: payload.iss ?? null,
-        tid: payload.tid ?? null
-      };
-    } catch {
-      // Token konnte nicht dekodiert werden
-    }
+    console.error(
+      "Teams token validation failed:",
+      error
+    );
 
     return Response.json(
       {
         authenticated: false,
-        error: "Invalid Teams SSO token",
-        debug
+        error: "Invalid Teams SSO token"
       },
-      { status: 401 }
+      {
+        status: 401
+      }
     );
   }
 }
 
+
+/* =========================================================
+   SUPABASE
+   ========================================================= */
+
+async function supabaseRequest(
+  env: Env,
+  path: string
+): Promise<Response> {
+
+  return fetch(
+    `${env.SUPABASE_URL}/rest/v1/${path}`,
+    {
+      headers: {
+        apikey:
+          env.SUPABASE_SERVICE_ROLE_KEY,
+
+        Authorization:
+          `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+
+        "Content-Type":
+          "application/json"
+      }
+    }
+  );
+}
+
+
+/* =========================================================
+   /api/matches
+   ========================================================= */
+
+async function handleMatches(
+  request: Request,
+  env: Env
+): Promise<Response> {
+
+  try {
+
+    /*
+      Erst Teams SSO validieren.
+      Ohne gültige Teams-Anmeldung gibt es keine Daten.
+    */
+
+    await validateTeamsToken(request);
+
+    const url =
+      new URL(request.url);
+
+    const team =
+      url.searchParams.get("team");
+
+    let query =
+      "matches?select=*";
+
+    if (team) {
+
+      query +=
+        `&team=eq.${encodeURIComponent(team)}`;
+    }
+
+    /*
+      Vorerst holen wir alle Spalten.
+      Damit sehen wir exakt die bestehende
+      matches-Struktur aus dem Streamlit-Projekt.
+    */
+
+    const response =
+      await supabaseRequest(
+        env,
+        query
+      );
+
+    if (!response.ok) {
+
+      const errorText =
+        await response.text();
+
+      console.error(
+        "Supabase matches error:",
+        errorText
+      );
+
+      return Response.json(
+        {
+          error:
+            "Matches konnten nicht geladen werden",
+
+          details:
+            errorText
+        },
+        {
+          status: 500
+        }
+      );
+    }
+
+    const matches =
+      await response.json();
+
+    return Response.json({
+      success: true,
+      matches
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Matches API error:",
+      error
+    );
+
+    return Response.json(
+      {
+        error:
+          "Unauthorized"
+      },
+      {
+        status: 401
+      }
+    );
+  }
+}
+
+
+/* =========================================================
+   WORKER
+   ========================================================= */
+
 export default {
+
   async fetch(
     request: Request,
     env: Env
   ): Promise<Response> {
-    const url = new URL(request.url);
 
-    if (url.pathname === "/api/me") {
+    const url =
+      new URL(request.url);
+
+
+    /* ---------- Benutzer ---------- */
+
+    if (
+      url.pathname === "/api/me"
+    ) {
+
       return handleMe(request);
     }
 
-    return env.ASSETS.fetch(request);
+
+    /* ---------- Spiele ---------- */
+
+    if (
+      url.pathname === "/api/matches"
+    ) {
+
+      return handleMatches(
+        request,
+        env
+      );
+    }
+
+
+    /* ---------- React ---------- */
+
+    return env.ASSETS.fetch(
+      request
+    );
   }
 };
