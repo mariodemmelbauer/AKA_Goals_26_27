@@ -50,9 +50,8 @@ const TEAMS: TeamName[] = [
 ];
 
 function App() {
-  const [status, setStatus] = useState(
-    "Teams wird initialisiert …"
-  );
+  const [status, setStatus] =
+    useState("Teams wird initialisiert …");
 
   const [userName, setUserName] =
     useState("");
@@ -60,8 +59,8 @@ function App() {
   const [tokenStatus, setTokenStatus] =
     useState("");
 
-  const [authToken, setAuthToken] =
-    useState("");
+  const [teamsReady, setTeamsReady] =
+    useState(false);
 
   const [selectedTeam, setSelectedTeam] =
     useState<TeamName>("U15");
@@ -76,116 +75,21 @@ function App() {
     useState(false);
 
   /* =====================================================
-     TEAMS / SSO INITIALISIERUNG
+     FRISCHEN TEAMS TOKEN HOLEN
      ===================================================== */
 
-  useEffect(() => {
-    const initTeams = async () => {
-      try {
-        await microsoftTeams.app.initialize();
+  const getTeamsToken = async (): Promise<string> => {
+    const token =
+      await microsoftTeams.authentication.getAuthToken();
 
-        const context =
-          await microsoftTeams.app.getContext();
+    if (!token) {
+      throw new Error(
+        "Kein Teams SSO Token empfangen"
+      );
+    }
 
-        setStatus("Microsoft Teams erkannt");
-
-        const contextUserName =
-          context.user?.displayName ??
-          context.user?.userPrincipalName ??
-          "";
-
-        if (contextUserName) {
-          setUserName(contextUserName);
-        }
-
-        try {
-          const token =
-            await microsoftTeams.authentication.getAuthToken();
-
-          if (!token) {
-            setTokenStatus(
-              "Teams erkannt, aber kein SSO Token empfangen"
-            );
-            return;
-          }
-
-          setTokenStatus(
-            "Teams SSO Token empfangen – Validierung läuft …"
-          );
-
-          const meResponse = await fetch(
-            "/api/me",
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json"
-              }
-            }
-          );
-
-          const meData =
-            (await meResponse.json()) as MeResponse;
-
-          if (!meResponse.ok) {
-            setTokenStatus(
-              meData.error
-                ? `SSO Validierung fehlgeschlagen: ${meData.error}`
-                : `SSO Validierung fehlgeschlagen (${meResponse.status})`
-            );
-
-            return;
-          }
-
-          if (!meData.authenticated) {
-            setTokenStatus(
-              "Teams SSO konnte nicht bestätigt werden"
-            );
-            return;
-          }
-
-          const validatedUserName =
-            meData.user?.name ??
-            meData.user?.username ??
-            contextUserName;
-
-          if (validatedUserName) {
-            setUserName(
-              validatedUserName
-            );
-          }
-
-          setAuthToken(token);
-
-          setTokenStatus(
-            "Teams SSO erfolgreich serverseitig validiert"
-          );
-        } catch (authError) {
-          console.error(
-            "Teams SSO Fehler:",
-            authError
-          );
-
-          setTokenStatus(
-            "Teams erkannt, SSO konnte aber nicht validiert werden"
-          );
-        }
-      } catch (teamsError) {
-        console.log(
-          "AKA Goals läuft außerhalb von Microsoft Teams:",
-          teamsError
-        );
-
-        setStatus(
-          "AKA Goals läuft aktuell außerhalb von Microsoft Teams"
-        );
-
-        setTokenStatus("");
-      }
-    };
-
-    void initTeams();
-  }, []);
+    return token;
+  };
 
   /* =====================================================
      SPIELE LADEN
@@ -194,7 +98,7 @@ function App() {
   const loadMatches = async (
     team: TeamName
   ) => {
-    if (!authToken) {
+    if (!teamsReady) {
       return;
     }
 
@@ -205,6 +109,14 @@ function App() {
     );
 
     try {
+      /*
+       * Wichtig:
+       * Für diesen API Request holen wir
+       * einen frischen Teams Token.
+       */
+      const token =
+        await getTeamsToken();
+
       const response = await fetch(
         `/api/matches?team=${encodeURIComponent(
           team
@@ -213,14 +125,22 @@ function App() {
           method: "GET",
           headers: {
             Authorization:
-              `Bearer ${authToken}`,
+              `Bearer ${token}`,
             Accept: "application/json"
           }
         }
       );
 
-      const data =
-        (await response.json()) as MatchesResponse;
+      let data: MatchesResponse;
+
+      try {
+        data =
+          (await response.json()) as MatchesResponse;
+      } catch {
+        throw new Error(
+          `Ungültige API-Antwort (${response.status})`
+        );
+      }
 
       if (!response.ok) {
         console.error(
@@ -230,9 +150,21 @@ function App() {
 
         setMatches([]);
 
+        if (data.details) {
+          console.error(
+            "Supabase Details:",
+            data.details
+          );
+        }
+
         setMatchesStatus(
-          data.error ??
-            `Spiele konnten nicht geladen werden (${response.status})`
+          data.error
+            ? `${data.error}${
+                data.details
+                  ? ` – ${data.details}`
+                  : ""
+              }`
+            : `Spiele konnten nicht geladen werden (${response.status})`
         );
 
         return;
@@ -264,8 +196,12 @@ function App() {
         error
       );
 
+      setMatches([]);
+
       setMatchesStatus(
-        `Fehler beim Laden der ${team}-Spiele`
+        error instanceof Error
+          ? error.message
+          : `Fehler beim Laden der ${team}-Spiele`
       );
     } finally {
       setLoadingMatches(false);
@@ -273,40 +209,143 @@ function App() {
   };
 
   /* =====================================================
-     NACH SSO INITIAL U15 LADEN
+     TEAMS + SSO INITIALISIEREN
      ===================================================== */
 
   useEffect(() => {
-    if (!authToken) {
+    const initTeams = async () => {
+      try {
+        await microsoftTeams.app.initialize();
+
+        const context =
+          await microsoftTeams.app.getContext();
+
+        setStatus(
+          "Microsoft Teams erkannt"
+        );
+
+        const contextUserName =
+          context.user?.displayName ??
+          context.user?.userPrincipalName ??
+          "";
+
+        if (contextUserName) {
+          setUserName(
+            contextUserName
+          );
+        }
+
+        const token =
+          await getTeamsToken();
+
+        setTokenStatus(
+          "Teams SSO Token empfangen – Validierung läuft …"
+        );
+
+        const meResponse = await fetch(
+          "/api/me",
+          {
+            method: "GET",
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+              Accept:
+                "application/json"
+            }
+          }
+        );
+
+        const meData =
+          (await meResponse.json()) as MeResponse;
+
+        if (!meResponse.ok) {
+          console.error(
+            "/api/me Fehler:",
+            meData
+          );
+
+          setTokenStatus(
+            meData.error
+              ? `SSO Validierung fehlgeschlagen: ${meData.error}`
+              : `SSO Validierung fehlgeschlagen (${meResponse.status})`
+          );
+
+          return;
+        }
+
+        if (!meData.authenticated) {
+          setTokenStatus(
+            "Teams SSO konnte nicht bestätigt werden"
+          );
+
+          return;
+        }
+
+        const validatedUserName =
+          meData.user?.name ??
+          meData.user?.username ??
+          contextUserName;
+
+        if (validatedUserName) {
+          setUserName(
+            validatedUserName
+          );
+        }
+
+        setTokenStatus(
+          "Teams SSO erfolgreich serverseitig validiert"
+        );
+
+        /*
+         * Erst jetzt API Aufrufe freigeben.
+         */
+        setTeamsReady(true);
+      } catch (error) {
+        console.error(
+          "Teams Initialisierung:",
+          error
+        );
+
+        setStatus(
+          "AKA Goals läuft aktuell außerhalb von Microsoft Teams"
+        );
+
+        setTokenStatus("");
+        setTeamsReady(false);
+      }
+    };
+
+    void initTeams();
+  }, []);
+
+  /* =====================================================
+     NACH ERFOLGREICHEM LOGIN U15 LADEN
+     ===================================================== */
+
+  useEffect(() => {
+    if (!teamsReady) {
       return;
     }
 
     void loadMatches(
       selectedTeam
     );
-  }, [authToken]);
+  }, [teamsReady]);
 
   /* =====================================================
-     TEAM WECHSELN
+     TEAM AUSWÄHLEN
      ===================================================== */
 
   const selectTeam = (
     team: TeamName
   ) => {
-    if (
-      team === selectedTeam &&
-      matches.length > 0
-    ) {
-      return;
-    }
-
     setSelectedTeam(team);
 
     void loadMatches(team);
   };
 
   /* =====================================================
-     MATCH HELPERS
+     MATCH FORMATIERUNG
      ===================================================== */
 
   const getMatchTitle = (
@@ -337,7 +376,8 @@ function App() {
     }
 
     try {
-      const date = new Date(rawDate);
+      const date =
+        new Date(rawDate);
 
       if (
         Number.isNaN(
@@ -364,16 +404,14 @@ function App() {
     match: MatchItem
   ): string => {
     if (
-      typeof match.competition ===
-        "string" &&
+      typeof match.competition === "string" &&
       match.competition.trim()
     ) {
       return match.competition;
     }
 
     if (
-      typeof match.competition_type ===
-        "string" &&
+      typeof match.competition_type === "string" &&
       match.competition_type.trim()
     ) {
       return match.competition_type;
@@ -383,14 +421,16 @@ function App() {
   };
 
   /* =====================================================
-     RENDER
+     UI
      ===================================================== */
 
   return (
     <div className="app">
       <header>
         <div>
-          <h1>AKA Goals</h1>
+          <h1>
+            AKA Goals
+          </h1>
 
           <span>
             SV Oberbank Ried
@@ -422,46 +462,47 @@ function App() {
           </p>
         )}
 
-        {/* ================================
-            TEAM AUSWAHL
-            ================================ */}
+        {/* TEAM AUSWAHL */}
 
         <div className="cards">
-          {TEAMS.map((team) => (
-            <div
-              key={team}
-              className={`card team-card ${
-                selectedTeam === team
-                  ? "active-team"
-                  : ""
-              }`}
-              onClick={() =>
-                selectTeam(team)
-              }
-              role="button"
-              tabIndex={0}
-              onKeyDown={(event) => {
-                if (
-                  event.key ===
-                    "Enter" ||
-                  event.key === " "
-                ) {
-                  selectTeam(team);
+          {TEAMS.map(
+            (team) => (
+              <div
+                key={team}
+                className={`card team-card ${
+                  selectedTeam === team
+                    ? "active-team"
+                    : ""
+                }`}
+                onClick={() =>
+                  selectTeam(team)
                 }
-              }}
-            >
-              <h3>{team}</h3>
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (
+                    event.key ===
+                      "Enter" ||
+                    event.key ===
+                      " "
+                  ) {
+                    selectTeam(team);
+                  }
+                }}
+              >
+                <h3>
+                  {team}
+                </h3>
 
-              <p>
-                Goals &amp; Analysis
-              </p>
-            </div>
-          ))}
+                <p>
+                  Goals &amp; Analysis
+                </p>
+              </div>
+            )
+          )}
         </div>
 
-        {/* ================================
-            SPIELLISTE
-            ================================ */}
+        {/* SPIELE */}
 
         <section
           style={{
@@ -490,7 +531,8 @@ function App() {
                 style={{
                   display: "grid",
                   gap: "12px",
-                  marginTop: "16px"
+                  marginTop:
+                    "16px"
                 }}
               >
                 {matches.map(
