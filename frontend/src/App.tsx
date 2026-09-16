@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import * as microsoftTeams from "@microsoft/teams-js";
 import "./App.css";
 
+type TeamName =
+  | "U15"
+  | "U16"
+  | "U18"
+  | "JWR"
+  | "Profis";
+
 type ApiUser = {
   name?: string | null;
   username?: string | null;
@@ -34,21 +41,51 @@ type MatchesResponse = {
   details?: string;
 };
 
-function App() {
-  const [status, setStatus] = useState("Teams wird initialisiert …");
-  const [userName, setUserName] = useState("");
-  const [tokenStatus, setTokenStatus] = useState("");
+const TEAMS: TeamName[] = [
+  "U15",
+  "U16",
+  "U18",
+  "JWR",
+  "Profis"
+];
 
-  const [matches, setMatches] = useState<MatchItem[]>([]);
-  const [matchesStatus, setMatchesStatus] = useState("");
-  const [loadingMatches, setLoadingMatches] = useState(false);
+function App() {
+  const [status, setStatus] = useState(
+    "Teams wird initialisiert …"
+  );
+
+  const [userName, setUserName] =
+    useState("");
+
+  const [tokenStatus, setTokenStatus] =
+    useState("");
+
+  const [authToken, setAuthToken] =
+    useState("");
+
+  const [selectedTeam, setSelectedTeam] =
+    useState<TeamName>("U15");
+
+  const [matches, setMatches] =
+    useState<MatchItem[]>([]);
+
+  const [matchesStatus, setMatchesStatus] =
+    useState("");
+
+  const [loadingMatches, setLoadingMatches] =
+    useState(false);
+
+  /* =====================================================
+     TEAMS / SSO INITIALISIERUNG
+     ===================================================== */
 
   useEffect(() => {
     const initTeams = async () => {
       try {
         await microsoftTeams.app.initialize();
 
-        const context = await microsoftTeams.app.getContext();
+        const context =
+          await microsoftTeams.app.getContext();
 
         setStatus("Microsoft Teams erkannt");
 
@@ -76,27 +113,21 @@ function App() {
             "Teams SSO Token empfangen – Validierung läuft …"
           );
 
-          /* =====================================================
-             Benutzer serverseitig validieren
-             ===================================================== */
-
-          const meResponse = await fetch("/api/me", {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json"
+          const meResponse = await fetch(
+            "/api/me",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/json"
+              }
             }
-          });
+          );
 
           const meData =
             (await meResponse.json()) as MeResponse;
 
           if (!meResponse.ok) {
-            console.error(
-              "API /api/me Fehler:",
-              meData
-            );
-
             setTokenStatus(
               meData.error
                 ? `SSO Validierung fehlgeschlagen: ${meData.error}`
@@ -119,90 +150,16 @@ function App() {
             contextUserName;
 
           if (validatedUserName) {
-            setUserName(validatedUserName);
+            setUserName(
+              validatedUserName
+            );
           }
+
+          setAuthToken(token);
 
           setTokenStatus(
             "Teams SSO erfolgreich serverseitig validiert"
           );
-
-          /* =====================================================
-             U15-Spiele aus Supabase laden
-             ===================================================== */
-
-          setLoadingMatches(true);
-          setMatchesStatus(
-            "U15-Spiele werden geladen …"
-          );
-
-          try {
-            const matchesResponse = await fetch(
-              "/api/matches?team=U15",
-              {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  Accept: "application/json"
-                }
-              }
-            );
-
-            const matchesData =
-              (await matchesResponse.json()) as MatchesResponse;
-
-            if (!matchesResponse.ok) {
-              console.error(
-                "API /api/matches Fehler:",
-                matchesData
-              );
-
-              setMatches([]);
-
-              setMatchesStatus(
-                matchesData.error ??
-                  `Spiele konnten nicht geladen werden (${matchesResponse.status})`
-              );
-
-              return;
-            }
-
-            const loadedMatches =
-              Array.isArray(matchesData.matches)
-                ? matchesData.matches
-                : [];
-
-            console.log(
-              "U15 Matches:",
-              loadedMatches
-            );
-
-            setMatches(loadedMatches);
-
-            if (loadedMatches.length === 0) {
-              setMatchesStatus(
-                "Keine U15-Spiele gefunden"
-              );
-            } else {
-              setMatchesStatus(
-                `${loadedMatches.length} U15-Spiel${
-                  loadedMatches.length === 1
-                    ? ""
-                    : "e"
-                } geladen`
-              );
-            }
-          } catch (matchesError) {
-            console.error(
-              "Fehler beim Laden der Spiele:",
-              matchesError
-            );
-
-            setMatchesStatus(
-              "Fehler beim Laden der U15-Spiele"
-            );
-          } finally {
-            setLoadingMatches(false);
-          }
         } catch (authError) {
           console.error(
             "Teams SSO Fehler:",
@@ -224,23 +181,145 @@ function App() {
         );
 
         setTokenStatus("");
-        setMatches([]);
-        setMatchesStatus("");
       }
     };
 
     void initTeams();
   }, []);
 
+  /* =====================================================
+     SPIELE LADEN
+     ===================================================== */
+
+  const loadMatches = async (
+    team: TeamName
+  ) => {
+    if (!authToken) {
+      return;
+    }
+
+    setLoadingMatches(true);
+    setMatches([]);
+    setMatchesStatus(
+      `${team}-Spiele werden geladen …`
+    );
+
+    try {
+      const response = await fetch(
+        `/api/matches?team=${encodeURIComponent(
+          team
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization:
+              `Bearer ${authToken}`,
+            Accept: "application/json"
+          }
+        }
+      );
+
+      const data =
+        (await response.json()) as MatchesResponse;
+
+      if (!response.ok) {
+        console.error(
+          "Matches API Fehler:",
+          data
+        );
+
+        setMatches([]);
+
+        setMatchesStatus(
+          data.error ??
+            `Spiele konnten nicht geladen werden (${response.status})`
+        );
+
+        return;
+      }
+
+      const loadedMatches =
+        Array.isArray(data.matches)
+          ? data.matches
+          : [];
+
+      setMatches(loadedMatches);
+
+      if (loadedMatches.length === 0) {
+        setMatchesStatus(
+          `Keine ${team}-Spiele gefunden`
+        );
+      } else {
+        setMatchesStatus(
+          `${loadedMatches.length} ${team}-Spiel${
+            loadedMatches.length === 1
+              ? ""
+              : "e"
+          } geladen`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Fehler beim Laden der Spiele:",
+        error
+      );
+
+      setMatchesStatus(
+        `Fehler beim Laden der ${team}-Spiele`
+      );
+    } finally {
+      setLoadingMatches(false);
+    }
+  };
+
+  /* =====================================================
+     NACH SSO INITIAL U15 LADEN
+     ===================================================== */
+
+  useEffect(() => {
+    if (!authToken) {
+      return;
+    }
+
+    void loadMatches(
+      selectedTeam
+    );
+  }, [authToken]);
+
+  /* =====================================================
+     TEAM WECHSELN
+     ===================================================== */
+
+  const selectTeam = (
+    team: TeamName
+  ) => {
+    if (
+      team === selectedTeam &&
+      matches.length > 0
+    ) {
+      return;
+    }
+
+    setSelectedTeam(team);
+
+    void loadMatches(team);
+  };
+
+  /* =====================================================
+     MATCH HELPERS
+     ===================================================== */
+
   const getMatchTitle = (
     match: MatchItem
   ): string => {
-    const opponent =
-      typeof match.opponent === "string"
-        ? match.opponent
-        : "Unbekannter Gegner";
+    if (
+      typeof match.opponent === "string" &&
+      match.opponent.trim()
+    ) {
+      return match.opponent;
+    }
 
-    return opponent;
+    return "Unbekannter Gegner";
   };
 
   const getMatchDate = (
@@ -258,6 +337,16 @@ function App() {
     }
 
     try {
+      const date = new Date(rawDate);
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return rawDate;
+      }
+
       return new Intl.DateTimeFormat(
         "de-DE",
         {
@@ -265,23 +354,27 @@ function App() {
           month: "2-digit",
           year: "numeric"
         }
-      ).format(new Date(rawDate));
+      ).format(date);
     } catch {
       return rawDate;
     }
   };
 
-  const getMatchCompetition = (
+  const getCompetition = (
     match: MatchItem
   ): string => {
     if (
-      typeof match.competition === "string"
+      typeof match.competition ===
+        "string" &&
+      match.competition.trim()
     ) {
       return match.competition;
     }
 
     if (
-      typeof match.competition_type === "string"
+      typeof match.competition_type ===
+        "string" &&
+      match.competition_type.trim()
     ) {
       return match.competition_type;
     }
@@ -289,22 +382,33 @@ function App() {
     return "";
   };
 
+  /* =====================================================
+     RENDER
+     ===================================================== */
+
   return (
     <div className="app">
       <header>
         <div>
           <h1>AKA Goals</h1>
-          <span>SV Oberbank Ried</span>
+
+          <span>
+            SV Oberbank Ried
+          </span>
         </div>
       </header>
 
       <main>
-        <h2>AKA Goals Dashboard</h2>
+        <h2>
+          AKA Goals Dashboard
+        </h2>
 
         {userName && (
           <p>
             Angemeldet als{" "}
-            <strong>{userName}</strong>
+            <strong>
+              {userName}
+            </strong>
           </p>
         )}
 
@@ -318,39 +422,55 @@ function App() {
           </p>
         )}
 
+        {/* ================================
+            TEAM AUSWAHL
+            ================================ */}
+
         <div className="cards">
-          <div className="card">
-            <h3>U15</h3>
-            <p>Goals &amp; Analysis</p>
-          </div>
+          {TEAMS.map((team) => (
+            <div
+              key={team}
+              className={`card team-card ${
+                selectedTeam === team
+                  ? "active-team"
+                  : ""
+              }`}
+              onClick={() =>
+                selectTeam(team)
+              }
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (
+                  event.key ===
+                    "Enter" ||
+                  event.key === " "
+                ) {
+                  selectTeam(team);
+                }
+              }}
+            >
+              <h3>{team}</h3>
 
-          <div className="card">
-            <h3>U16</h3>
-            <p>Goals &amp; Analysis</p>
-          </div>
-
-          <div className="card">
-            <h3>U18</h3>
-            <p>Goals &amp; Analysis</p>
-          </div>
-
-          <div className="card">
-            <h3>JWR</h3>
-            <p>Goals &amp; Analysis</p>
-          </div>
-
-          <div className="card">
-            <h3>Profis</h3>
-            <p>Goals &amp; Analysis</p>
-          </div>
+              <p>
+                Goals &amp; Analysis
+              </p>
+            </div>
+          ))}
         </div>
+
+        {/* ================================
+            SPIELLISTE
+            ================================ */}
 
         <section
           style={{
             marginTop: "32px"
           }}
         >
-          <h2>U15 Spiele</h2>
+          <h2>
+            {selectedTeam} Spiele
+          </h2>
 
           {matchesStatus && (
             <p className="status">
@@ -374,24 +494,27 @@ function App() {
                 }}
               >
                 {matches.map(
-                  (match, index) => {
+                  (
+                    match,
+                    index
+                  ) => {
                     const date =
-                      getMatchDate(match);
+                      getMatchDate(
+                        match
+                      );
 
                     const competition =
-                      getMatchCompetition(
+                      getCompetition(
                         match
                       );
 
                     return (
                       <div
-                        key={
-                          String(
-                            match.id ??
-                              index
-                          )
-                        }
-                        className="card"
+                        key={String(
+                          match.id ??
+                            index
+                        )}
+                        className="card match-card"
                       >
                         <h3>
                           {getMatchTitle(
@@ -424,11 +547,9 @@ function App() {
                             <strong>
                               Team:
                             </strong>{" "}
-                            {
-                              String(
-                                match.team
-                              )
-                            }
+                            {String(
+                              match.team
+                            )}
                           </p>
                         )}
                       </div>
