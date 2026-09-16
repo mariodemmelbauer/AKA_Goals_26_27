@@ -32,7 +32,7 @@ async function handleMe(request: Request): Promise<Response> {
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
-      audience: APP_ID_URI
+      audience: CLIENT_ID
     });
 
     if (payload.tid !== TENANT_ID) {
