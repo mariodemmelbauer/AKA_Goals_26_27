@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import * as microsoftTeams from "@microsoft/teams-js";
 import "./App.css";
 
-const CLIENT_ID = "195954d1-452c-40de-8108-e6baf8a12042";
-const TENANT_ID = "1fcb46af-c475-4867-8c22-1ada8dd7cfdf";
 
 function App() {
   const [status, setStatus] = useState("Teams wird initialisiert …");
