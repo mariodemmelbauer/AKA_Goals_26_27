@@ -7,7 +7,6 @@ import {
 
 interface Env {
   ASSETS: Fetcher;
-
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
@@ -38,7 +37,7 @@ const JWKS_V1 = createRemoteJWKSet(
 );
 
 /* =========================================================
-   TEAMS TOKEN VALIDIEREN
+   TEAMS TOKEN
    ========================================================= */
 
 async function validateTeamsToken(
@@ -63,9 +62,9 @@ async function validateTeamsToken(
     decodeJwt(token);
 
   const version =
-    String(unverified.ver ?? "");
-
-  /* ---------- TOKEN V2 ---------- */
+    String(
+      unverified.ver ?? ""
+    );
 
   if (version === "2.0") {
     const result =
@@ -75,7 +74,6 @@ async function validateTeamsToken(
         {
           issuer:
             `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
-
           audience:
             CLIENT_ID
         }
@@ -93,8 +91,6 @@ async function validateTeamsToken(
     return result.payload;
   }
 
-  /* ---------- TOKEN V1 ---------- */
-
   const result =
     await jwtVerify(
       token,
@@ -102,7 +98,6 @@ async function validateTeamsToken(
       {
         issuer:
           `https://sts.windows.net/${TENANT_ID}/`,
-
         audience: [
           CLIENT_ID,
           APP_ID_URI
@@ -318,16 +313,10 @@ async function handleMatches(
       const details =
         await response.text();
 
-      console.error(
-        "Supabase matches error:",
-        details
-      );
-
       return Response.json(
         {
           error:
             "Matches konnten nicht geladen werden",
-
           details
         },
         {
@@ -345,16 +334,10 @@ async function handleMatches(
       matches
     });
   } catch (error) {
-    console.error(
-      "Matches API error:",
-      error
-    );
-
     return Response.json(
       {
         error:
           "Fehler beim Laden der Matches",
-
         details:
           error instanceof Error
             ? error.message
@@ -368,7 +351,7 @@ async function handleMatches(
 }
 
 /* =========================================================
-   EVENT TYPE
+   EVENT TYPES
    ========================================================= */
 
 type CreateEventBody = {
@@ -440,16 +423,10 @@ async function getEvents(
     const details =
       await response.text();
 
-    console.error(
-      "Supabase goal_events GET error:",
-      details
-    );
-
     return Response.json(
       {
         error:
           "Events konnten nicht geladen werden",
-
         details
       },
       {
@@ -469,7 +446,7 @@ async function getEvents(
 }
 
 /* =========================================================
-   POST EVENT
+   CREATE EVENT
    ========================================================= */
 
 async function createEvent(
@@ -492,8 +469,6 @@ async function createEvent(
       }
     );
   }
-
-  /* ---------- Pflichtfelder ---------- */
 
   if (
     body.match_id == null ||
@@ -540,8 +515,6 @@ async function createEvent(
     );
   }
 
-  /* ---------- Minute ---------- */
-
   if (
     body.minute != null &&
     (
@@ -562,8 +535,6 @@ async function createEvent(
       }
     );
   }
-
-  /* ---------- Koordinaten ---------- */
 
   const coordinateValues = [
     body.start_x,
@@ -594,8 +565,6 @@ async function createEvent(
       );
     }
   }
-
-  /* ---------- INSERT DATENSATZ ---------- */
 
   const event = {
     match_id:
@@ -663,16 +632,10 @@ async function createEvent(
     const details =
       await response.text();
 
-    console.error(
-      "Supabase goal_events POST error:",
-      details
-    );
-
     return Response.json(
       {
         error:
           "Event konnte nicht gespeichert werden",
-
         details
       },
       {
@@ -700,6 +663,79 @@ async function createEvent(
       status: 201
     }
   );
+}
+
+/* =========================================================
+   DELETE EVENT
+   ========================================================= */
+
+async function deleteEvent(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url =
+    new URL(
+      request.url
+    );
+
+  const eventId =
+    url.searchParams.get(
+      "id"
+    );
+
+  if (!eventId) {
+    return Response.json(
+      {
+        error:
+          "Event-ID fehlt"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  const response =
+    await supabaseRequest(
+      env,
+      `goal_events?id=eq.${encodeURIComponent(
+        eventId
+      )}`,
+      {
+        method:
+          "DELETE",
+
+        headers: {
+          Prefer:
+            "return=representation"
+        }
+      }
+    );
+
+  if (!response.ok) {
+    const details =
+      await response.text();
+
+    return Response.json(
+      {
+        error:
+          "Event konnte nicht gelöscht werden",
+        details
+      },
+      {
+        status:
+          response.status
+      }
+    );
+  }
+
+  const deleted =
+    await response.json();
+
+  return Response.json({
+    success: true,
+    deleted
+  });
 }
 
 /* =========================================================
@@ -759,6 +795,16 @@ async function handleEvents(
       );
     }
 
+    if (
+      request.method ===
+      "DELETE"
+    ) {
+      return deleteEvent(
+        request,
+        env
+      );
+    }
+
     return Response.json(
       {
         error:
@@ -769,16 +815,11 @@ async function handleEvents(
 
         headers: {
           Allow:
-            "GET, POST"
+            "GET, POST, DELETE"
         }
       }
     );
   } catch (error) {
-    console.error(
-      "Events API error:",
-      error
-    );
-
     return Response.json(
       {
         error:
@@ -810,8 +851,6 @@ export default {
         request.url
       );
 
-    /* ---------- USER ---------- */
-
     if (
       url.pathname ===
       "/api/me"
@@ -820,8 +859,6 @@ export default {
         request
       );
     }
-
-    /* ---------- MATCHES ---------- */
 
     if (
       url.pathname ===
@@ -833,8 +870,6 @@ export default {
       );
     }
 
-    /* ---------- EVENTS ---------- */
-
     if (
       url.pathname ===
       "/api/events"
@@ -844,8 +879,6 @@ export default {
         env
       );
     }
-
-    /* ---------- REACT APP ---------- */
 
     return env.ASSETS.fetch(
       request
