@@ -1,0 +1,56 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.23/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.23",
+  "version": "1.0.0",
+
+  "id": "195954d1-452c-40de-8108-e6baf8a12042",
+
+  "developer": {
+    "name": "SV Oberbank Ried",
+    "websiteUrl": "https://www.svried.at",
+    "privacyUrl": "https://www.svried.at",
+    "termsOfUseUrl": "https://www.svried.at"
+  },
+
+  "name": {
+    "short": "AKA Goals",
+    "full": "AKA Goals Dashboard"
+  },
+
+  "description": {
+    "short": "Tor- und Gegentor-Analyse der SV Ried Akademie",
+    "full": "AKA Goals Dashboard für U15, U16, U18, Junge Wikinger und Profis der SV Oberbank Ried."
+  },
+
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+
+  "accentColor": "#111111",
+
+  "staticTabs": [
+    {
+      "entityId": "aka-goals-dashboard",
+      "name": "AKA Goals",
+      "contentUrl": "https://aka-goals-26-27.mario-demmelbauer.workers.dev",
+      "websiteUrl": "https://aka-goals-26-27.mario-demmelbauer.workers.dev",
+      "scopes": [
+        "personal"
+      ]
+    }
+  ],
+
+  "permissions": [
+    "identity"
+  ],
+
+  "validDomains": [
+    "aka-goals-26-27.mario-demmelbauer.workers.dev"
+  ],
+
+  "webApplicationInfo": {
+    "id": "195954d1-452c-40de-8108-e6baf8a12042",
+    "resource": "api://aka-goals-26-27.mario-demmelbauer.workers.dev/195954d1-452c-40de-8108-e6baf8a12042"
+  }
+}
