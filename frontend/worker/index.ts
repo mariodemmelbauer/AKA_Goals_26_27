@@ -65,6 +65,8 @@ async function validateTeamsToken(
   const version =
     String(unverified.ver ?? "");
 
+  /* ---------- TOKEN V2 ---------- */
+
   if (version === "2.0") {
     const result =
       await jwtVerify(
@@ -73,6 +75,7 @@ async function validateTeamsToken(
         {
           issuer:
             `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
+
           audience:
             CLIENT_ID
         }
@@ -90,6 +93,8 @@ async function validateTeamsToken(
     return result.payload;
   }
 
+  /* ---------- TOKEN V1 ---------- */
+
   const result =
     await jwtVerify(
       token,
@@ -97,6 +102,7 @@ async function validateTeamsToken(
       {
         issuer:
           `https://sts.windows.net/${TENANT_ID}/`,
+
         audience: [
           CLIENT_ID,
           APP_ID_URI
@@ -117,7 +123,7 @@ async function validateTeamsToken(
 }
 
 /* =========================================================
-   ENV PRÜFEN
+   SUPABASE ENV
    ========================================================= */
 
 function checkSupabaseEnv(
@@ -153,7 +159,7 @@ function checkSupabaseEnv(
 }
 
 /* =========================================================
-   SUPABASE HELPER
+   SUPABASE REQUEST
    ========================================================= */
 
 async function supabaseRequest(
@@ -321,6 +327,7 @@ async function handleMatches(
         {
           error:
             "Matches konnten nicht geladen werden",
+
           details
         },
         {
@@ -347,6 +354,7 @@ async function handleMatches(
       {
         error:
           "Fehler beim Laden der Matches",
+
         details:
           error instanceof Error
             ? error.message
@@ -360,25 +368,35 @@ async function handleMatches(
 }
 
 /* =========================================================
-   EVENT BODY
+   EVENT TYPE
    ========================================================= */
 
 type CreateEventBody = {
   match_id?: number | string;
+
   team?: string;
+
   event_type?: string;
 
   minute?: number | null;
 
   scorer?: string | null;
+
   assister?: string | null;
 
   phase?: string | null;
+
   creation_type?: string | null;
+
+  start_x?: number | null;
+  start_y?: number | null;
+
+  end_x?: number | null;
+  end_y?: number | null;
 };
 
 /* =========================================================
-   GET /api/events
+   GET EVENTS
    ========================================================= */
 
 async function getEvents(
@@ -431,6 +449,7 @@ async function getEvents(
       {
         error:
           "Events konnten nicht geladen werden",
+
         details
       },
       {
@@ -450,7 +469,7 @@ async function getEvents(
 }
 
 /* =========================================================
-   POST /api/events
+   POST EVENT
    ========================================================= */
 
 async function createEvent(
@@ -474,9 +493,7 @@ async function createEvent(
     );
   }
 
-  /* ---------------------------------------------------------
-     Pflichtfelder
-     --------------------------------------------------------- */
+  /* ---------- Pflichtfelder ---------- */
 
   if (
     body.match_id == null ||
@@ -523,9 +540,7 @@ async function createEvent(
     );
   }
 
-  /* ---------------------------------------------------------
-     Minute prüfen
-     --------------------------------------------------------- */
+  /* ---------- Minute ---------- */
 
   if (
     body.minute != null &&
@@ -548,9 +563,39 @@ async function createEvent(
     );
   }
 
-  /* ---------------------------------------------------------
-     Datensatz vorbereiten
-     --------------------------------------------------------- */
+  /* ---------- Koordinaten ---------- */
+
+  const coordinateValues = [
+    body.start_x,
+    body.start_y,
+    body.end_x,
+    body.end_y
+  ];
+
+  for (
+    const value of coordinateValues
+  ) {
+    if (
+      value != null &&
+      (
+        typeof value !== "number" ||
+        value < 0 ||
+        value > 100
+      )
+    ) {
+      return Response.json(
+        {
+          error:
+            "Koordinaten müssen zwischen 0 und 100 liegen"
+        },
+        {
+          status: 400
+        }
+      );
+    }
+  }
+
+  /* ---------- INSERT DATENSATZ ---------- */
 
   const event = {
     match_id:
@@ -579,19 +624,28 @@ async function createEvent(
 
     creation_type:
       body.creation_type?.trim() ||
-      null
-  };
+      null,
 
-  /* ---------------------------------------------------------
-     Supabase INSERT
-     --------------------------------------------------------- */
+    start_x:
+      body.start_x ?? null,
+
+    start_y:
+      body.start_y ?? null,
+
+    end_x:
+      body.end_x ?? null,
+
+    end_y:
+      body.end_y ?? null
+  };
 
   const response =
     await supabaseRequest(
       env,
       "goal_events",
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers: {
           Prefer:
@@ -618,6 +672,7 @@ async function createEvent(
       {
         error:
           "Event konnte nicht gespeichert werden",
+
         details
       },
       {
@@ -633,8 +688,11 @@ async function createEvent(
   return Response.json(
     {
       success: true,
+
       event:
-        Array.isArray(created)
+        Array.isArray(
+          created
+        )
           ? created[0]
           : created
     },
@@ -708,6 +766,7 @@ async function handleEvents(
       },
       {
         status: 405,
+
         headers: {
           Allow:
             "GET, POST"
@@ -724,6 +783,7 @@ async function handleEvents(
       {
         error:
           "Fehler bei der Event-Verarbeitung",
+
         details:
           error instanceof Error
             ? error.message
@@ -785,7 +845,7 @@ export default {
       );
     }
 
-    /* ---------- REACT ---------- */
+    /* ---------- REACT APP ---------- */
 
     return env.ASSETS.fetch(
       request
