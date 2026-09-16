@@ -22,22 +22,20 @@ const APP_ID_URI =
   "api://aka-goals-26-27.mario-demmelbauer.workers.dev/195954d1-452c-40de-8108-e6baf8a12042";
 
 /* =========================================================
-   MICROSOFT ENTRA JWKS
+   ENTRA JWKS
    ========================================================= */
 
-const JWKS_V2 =
-  createRemoteJWKSet(
-    new URL(
-      `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
-    )
-  );
+const JWKS_V2 = createRemoteJWKSet(
+  new URL(
+    `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
+  )
+);
 
-const JWKS_V1 =
-  createRemoteJWKSet(
-    new URL(
-      `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`
-    )
-  );
+const JWKS_V1 = createRemoteJWKSet(
+  new URL(
+    `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`
+  )
+);
 
 /* =========================================================
    TEAMS TOKEN VALIDIEREN
@@ -65,13 +63,7 @@ async function validateTeamsToken(
     decodeJwt(token);
 
   const version =
-    String(
-      unverified.ver ?? ""
-    );
-
-  /* ---------------------------------------------------------
-     TOKEN VERSION 2.0
-     --------------------------------------------------------- */
+    String(unverified.ver ?? "");
 
   if (version === "2.0") {
     const result =
@@ -81,7 +73,6 @@ async function validateTeamsToken(
         {
           issuer:
             `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
-
           audience:
             CLIENT_ID
         }
@@ -99,10 +90,6 @@ async function validateTeamsToken(
     return result.payload;
   }
 
-  /* ---------------------------------------------------------
-     TOKEN VERSION 1.0
-     --------------------------------------------------------- */
-
   const result =
     await jwtVerify(
       token,
@@ -110,7 +97,6 @@ async function validateTeamsToken(
       {
         issuer:
           `https://sts.windows.net/${TENANT_ID}/`,
-
         audience: [
           CLIENT_ID,
           APP_ID_URI
@@ -128,6 +114,80 @@ async function validateTeamsToken(
   }
 
   return result.payload;
+}
+
+/* =========================================================
+   ENV PRÜFEN
+   ========================================================= */
+
+function checkSupabaseEnv(
+  env: Env
+): Response | null {
+  if (!env.SUPABASE_URL) {
+    return Response.json(
+      {
+        error:
+          "SUPABASE_URL fehlt"
+      },
+      {
+        status: 500
+      }
+    );
+  }
+
+  if (
+    !env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return Response.json(
+      {
+        error:
+          "SUPABASE_SERVICE_ROLE_KEY fehlt"
+      },
+      {
+        status: 500
+      }
+    );
+  }
+
+  return null;
+}
+
+/* =========================================================
+   SUPABASE HELPER
+   ========================================================= */
+
+async function supabaseRequest(
+  env: Env,
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
+  const headers =
+    new Headers(
+      init?.headers
+    );
+
+  headers.set(
+    "apikey",
+    env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  headers.set(
+    "Authorization",
+    `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+  );
+
+  headers.set(
+    "Content-Type",
+    "application/json"
+  );
+
+  return fetch(
+    `${env.SUPABASE_URL}/rest/v1/${path}`,
+    {
+      ...init,
+      headers
+    }
+  );
 }
 
 /* =========================================================
@@ -186,44 +246,6 @@ async function handleMe(
 }
 
 /* =========================================================
-   SUPABASE HELPER
-   ========================================================= */
-
-async function supabaseRequest(
-  env: Env,
-  path: string,
-  init?: RequestInit
-): Promise<Response> {
-  const headers =
-    new Headers(
-      init?.headers
-    );
-
-  headers.set(
-    "apikey",
-    env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
-  headers.set(
-    "Authorization",
-    `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
-  );
-
-  headers.set(
-    "Content-Type",
-    "application/json"
-  );
-
-  return fetch(
-    `${env.SUPABASE_URL}/rest/v1/${path}`,
-    {
-      ...init,
-      headers
-    }
-  );
-}
-
-/* =========================================================
    /api/matches
    ========================================================= */
 
@@ -231,10 +253,6 @@ async function handleMatches(
   request: Request,
   env: Env
 ): Promise<Response> {
-  /* ---------------------------------------------------------
-     TEAMS AUTHENTIFIZIERUNG
-     --------------------------------------------------------- */
-
   try {
     await validateTeamsToken(
       request
@@ -256,39 +274,12 @@ async function handleMatches(
     );
   }
 
-  /* ---------------------------------------------------------
-     ENV PRÜFEN
-     --------------------------------------------------------- */
+  const envError =
+    checkSupabaseEnv(env);
 
-  if (!env.SUPABASE_URL) {
-    return Response.json(
-      {
-        error:
-          "SUPABASE_URL fehlt"
-      },
-      {
-        status: 500
-      }
-    );
+  if (envError) {
+    return envError;
   }
-
-  if (
-    !env.SUPABASE_SERVICE_ROLE_KEY
-  ) {
-    return Response.json(
-      {
-        error:
-          "SUPABASE_SERVICE_ROLE_KEY fehlt"
-      },
-      {
-        status: 500
-      }
-    );
-  }
-
-  /* ---------------------------------------------------------
-     SPIELE LADEN
-     --------------------------------------------------------- */
 
   try {
     const url =
@@ -311,25 +302,13 @@ async function handleMatches(
         )}`;
     }
 
-    /*
-      Optional sortieren.
-      Falls die Tabelle eine date-Spalte hat,
-      funktioniert das direkt.
-
-      Wenn deine Tabelle anders heißt,
-      kann man das später anpassen.
-    */
-
-
     const response =
       await supabaseRequest(
         env,
         query
       );
 
-    if (
-      !response.ok
-    ) {
+    if (!response.ok) {
       const details =
         await response.text();
 
@@ -342,7 +321,6 @@ async function handleMatches(
         {
           error:
             "Matches konnten nicht geladen werden",
-
           details
         },
         {
@@ -369,7 +347,6 @@ async function handleMatches(
       {
         error:
           "Fehler beim Laden der Matches",
-
         details:
           error instanceof Error
             ? error.message
@@ -383,6 +360,291 @@ async function handleMatches(
 }
 
 /* =========================================================
+   EVENT BODY
+   ========================================================= */
+
+type CreateEventBody = {
+  match_id?: number | string;
+  team?: string;
+  event_type?: string;
+
+  minute?: number | null;
+
+  scorer?: string | null;
+  assister?: string | null;
+
+  phase?: string | null;
+  creation_type?: string | null;
+};
+
+/* =========================================================
+   GET /api/events
+   ========================================================= */
+
+async function getEvents(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url =
+    new URL(
+      request.url
+    );
+
+  const matchId =
+    url.searchParams.get(
+      "match_id"
+    );
+
+  if (!matchId) {
+    return Response.json(
+      {
+        error:
+          "match_id fehlt"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  const query =
+    `goal_events?select=*&match_id=eq.${encodeURIComponent(
+      matchId
+    )}&order=minute.asc`;
+
+  const response =
+    await supabaseRequest(
+      env,
+      query
+    );
+
+  if (!response.ok) {
+    const details =
+      await response.text();
+
+    console.error(
+      "Supabase goal_events GET error:",
+      details
+    );
+
+    return Response.json(
+      {
+        error:
+          "Events konnten nicht geladen werden",
+        details
+      },
+      {
+        status:
+          response.status
+      }
+    );
+  }
+
+  const events =
+    await response.json();
+
+  return Response.json({
+    success: true,
+    events
+  });
+}
+
+/* =========================================================
+   POST /api/events
+   ========================================================= */
+
+async function createEvent(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  let body: CreateEventBody;
+
+  try {
+    body =
+      (await request.json()) as CreateEventBody;
+  } catch {
+    return Response.json(
+      {
+        error:
+          "Ungültiger JSON Body"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  /* ---------------------------------------------------------
+     Pflichtfelder
+     --------------------------------------------------------- */
+
+  if (
+    body.match_id == null ||
+    body.match_id === ""
+  ) {
+    return Response.json(
+      {
+        error:
+          "match_id fehlt"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  if (
+    !body.team ||
+    !body.team.trim()
+  ) {
+    return Response.json(
+      {
+        error:
+          "team fehlt"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  if (
+    body.event_type !== "Tor" &&
+    body.event_type !== "Gegentor"
+  ) {
+    return Response.json(
+      {
+        error:
+          "event_type muss Tor oder Gegentor sein"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  /* ---------------------------------------------------------
+     Minute prüfen
+     --------------------------------------------------------- */
+
+  if (
+    body.minute != null &&
+    (
+      !Number.isInteger(
+        body.minute
+      ) ||
+      body.minute < 0 ||
+      body.minute > 130
+    )
+  ) {
+    return Response.json(
+      {
+        error:
+          "Minute muss zwischen 0 und 130 liegen"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  /* ---------------------------------------------------------
+     Datensatz vorbereiten
+     --------------------------------------------------------- */
+
+  const event = {
+    match_id:
+      body.match_id,
+
+    team:
+      body.team.trim(),
+
+    event_type:
+      body.event_type,
+
+    minute:
+      body.minute ?? null,
+
+    scorer:
+      body.scorer?.trim() ||
+      null,
+
+    assister:
+      body.assister?.trim() ||
+      null,
+
+    phase:
+      body.phase?.trim() ||
+      null,
+
+    creation_type:
+      body.creation_type?.trim() ||
+      null
+  };
+
+  /* ---------------------------------------------------------
+     Supabase INSERT
+     --------------------------------------------------------- */
+
+  const response =
+    await supabaseRequest(
+      env,
+      "goal_events",
+      {
+        method: "POST",
+
+        headers: {
+          Prefer:
+            "return=representation"
+        },
+
+        body:
+          JSON.stringify(
+            event
+          )
+      }
+    );
+
+  if (!response.ok) {
+    const details =
+      await response.text();
+
+    console.error(
+      "Supabase goal_events POST error:",
+      details
+    );
+
+    return Response.json(
+      {
+        error:
+          "Event konnte nicht gespeichert werden",
+        details
+      },
+      {
+        status:
+          response.status
+      }
+    );
+  }
+
+  const created =
+    await response.json();
+
+  return Response.json(
+    {
+      success: true,
+      event:
+        Array.isArray(created)
+          ? created[0]
+          : created
+    },
+    {
+      status: 201
+    }
+  );
+}
+
+/* =========================================================
    /api/events
    ========================================================= */
 
@@ -390,10 +652,6 @@ async function handleEvents(
   request: Request,
   env: Env
 ): Promise<Response> {
-  /* ---------------------------------------------------------
-     TEAMS AUTHENTIFIZIERUNG
-     --------------------------------------------------------- */
-
   try {
     await validateTeamsToken(
       request
@@ -415,106 +673,47 @@ async function handleEvents(
     );
   }
 
-  /* ---------------------------------------------------------
-     ENV PRÜFEN
-     --------------------------------------------------------- */
+  const envError =
+    checkSupabaseEnv(env);
 
-  if (!env.SUPABASE_URL) {
-    return Response.json(
-      {
-        error:
-          "SUPABASE_URL fehlt"
-      },
-      {
-        status: 500
-      }
-    );
+  if (envError) {
+    return envError;
   }
-
-  if (
-    !env.SUPABASE_SERVICE_ROLE_KEY
-  ) {
-    return Response.json(
-      {
-        error:
-          "SUPABASE_SERVICE_ROLE_KEY fehlt"
-      },
-      {
-        status: 500
-      }
-    );
-  }
-
-  /* ---------------------------------------------------------
-     EVENTS LADEN
-     --------------------------------------------------------- */
 
   try {
-    const url =
-      new URL(
-        request.url
-      );
-
-    const matchId =
-      url.searchParams.get(
-        "match_id"
-      );
-
-    if (!matchId) {
-      return Response.json(
-        {
-          error:
-            "match_id fehlt"
-        },
-        {
-          status: 400
-        }
+    if (
+      request.method ===
+      "GET"
+    ) {
+      return getEvents(
+        request,
+        env
       );
     }
-
-    const query =
-      `goal_events?select=*&match_id=eq.${encodeURIComponent(
-        matchId
-      )}&order=minute.asc`;
-
-    const response =
-      await supabaseRequest(
-        env,
-        query
-      );
 
     if (
-      !response.ok
+      request.method ===
+      "POST"
     ) {
-      const details =
-        await response.text();
-
-      console.error(
-        "Supabase goal_events error:",
-        details
-      );
-
-      return Response.json(
-        {
-          error:
-            "Events konnten nicht geladen werden",
-
-          details
-        },
-        {
-          status:
-            response.status
-        }
+      return createEvent(
+        request,
+        env
       );
     }
 
-    const events =
-      await response.json();
-
-    return Response.json({
-      success: true,
-      events
-    });
+    return Response.json(
+      {
+        error:
+          "Method not allowed"
+      },
+      {
+        status: 405,
+        headers: {
+          Allow:
+            "GET, POST"
+        }
+      }
+    );
   } catch (error) {
     console.error(
       "Events API error:",
@@ -524,8 +723,7 @@ async function handleEvents(
     return Response.json(
       {
         error:
-          "Fehler beim Laden der Events",
-
+          "Fehler bei der Event-Verarbeitung",
         details:
           error instanceof Error
             ? error.message
@@ -552,9 +750,7 @@ export default {
         request.url
       );
 
-    /* -------------------------------------------------------
-       API: Benutzer
-       ------------------------------------------------------- */
+    /* ---------- USER ---------- */
 
     if (
       url.pathname ===
@@ -565,9 +761,7 @@ export default {
       );
     }
 
-    /* -------------------------------------------------------
-       API: Spiele
-       ------------------------------------------------------- */
+    /* ---------- MATCHES ---------- */
 
     if (
       url.pathname ===
@@ -579,9 +773,7 @@ export default {
       );
     }
 
-    /* -------------------------------------------------------
-       API: Tore / Gegentore
-       ------------------------------------------------------- */
+    /* ---------- EVENTS ---------- */
 
     if (
       url.pathname ===
@@ -593,9 +785,7 @@ export default {
       );
     }
 
-    /* -------------------------------------------------------
-       REACT APP
-       ------------------------------------------------------- */
+    /* ---------- REACT ---------- */
 
     return env.ASSETS.fetch(
       request
