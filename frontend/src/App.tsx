@@ -12,8 +12,6 @@ type TeamName =
 type ApiUser = {
   name?: string | null;
   username?: string | null;
-  objectId?: string | null;
-  tenantId?: string | null;
 };
 
 type MeResponse = {
@@ -30,13 +28,37 @@ type MatchItem = {
   match_date?: string;
   competition?: string;
   competition_type?: string;
-  home_away?: string;
   [key: string]: unknown;
 };
 
 type MatchesResponse = {
   success?: boolean;
   matches?: MatchItem[];
+  error?: string;
+  details?: string;
+};
+
+type GoalEvent = {
+  id?: number | string;
+  match_id?: number | string;
+  team?: string;
+
+  event_type?: string;
+
+  minute?: number | null;
+
+  scorer?: string | null;
+  assister?: string | null;
+
+  phase?: string | null;
+  creation_type?: string | null;
+
+  [key: string]: unknown;
+};
+
+type EventsResponse = {
+  success?: boolean;
+  events?: GoalEvent[];
   error?: string;
   details?: string;
 };
@@ -74,142 +96,38 @@ function App() {
   const [loadingMatches, setLoadingMatches] =
     useState(false);
 
-  /* =====================================================
-     FRISCHEN TEAMS TOKEN HOLEN
-     ===================================================== */
+  const [selectedMatch, setSelectedMatch] =
+    useState<MatchItem | null>(null);
 
-  const getTeamsToken = async (): Promise<string> => {
-    const token =
-      await microsoftTeams.authentication.getAuthToken();
+  const [events, setEvents] =
+    useState<GoalEvent[]>([]);
 
-    if (!token) {
-      throw new Error(
-        "Kein Teams SSO Token empfangen"
-      );
-    }
+  const [eventsStatus, setEventsStatus] =
+    useState("");
 
-    return token;
-  };
+  const [loadingEvents, setLoadingEvents] =
+    useState(false);
 
   /* =====================================================
-     SPIELE LADEN
+     TEAMS TOKEN
      ===================================================== */
 
-  const loadMatches = async (
-    team: TeamName
-  ) => {
-    if (!teamsReady) {
-      return;
-    }
-
-    setLoadingMatches(true);
-    setMatches([]);
-    setMatchesStatus(
-      `${team}-Spiele werden geladen …`
-    );
-
-    try {
-      /*
-       * Wichtig:
-       * Für diesen API Request holen wir
-       * einen frischen Teams Token.
-       */
+  const getTeamsToken =
+    async (): Promise<string> => {
       const token =
-        await getTeamsToken();
+        await microsoftTeams.authentication.getAuthToken();
 
-      const response = await fetch(
-        `/api/matches?team=${encodeURIComponent(
-          team
-        )}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-            Accept: "application/json"
-          }
-        }
-      );
-
-      let data: MatchesResponse;
-
-      try {
-        data =
-          (await response.json()) as MatchesResponse;
-      } catch {
+      if (!token) {
         throw new Error(
-          `Ungültige API-Antwort (${response.status})`
+          "Kein Teams SSO Token empfangen"
         );
       }
 
-      if (!response.ok) {
-        console.error(
-          "Matches API Fehler:",
-          data
-        );
-
-        setMatches([]);
-
-        if (data.details) {
-          console.error(
-            "Supabase Details:",
-            data.details
-          );
-        }
-
-        setMatchesStatus(
-          data.error
-            ? `${data.error}${
-                data.details
-                  ? ` – ${data.details}`
-                  : ""
-              }`
-            : `Spiele konnten nicht geladen werden (${response.status})`
-        );
-
-        return;
-      }
-
-      const loadedMatches =
-        Array.isArray(data.matches)
-          ? data.matches
-          : [];
-
-      setMatches(loadedMatches);
-
-      if (loadedMatches.length === 0) {
-        setMatchesStatus(
-          `Keine ${team}-Spiele gefunden`
-        );
-      } else {
-        setMatchesStatus(
-          `${loadedMatches.length} ${team}-Spiel${
-            loadedMatches.length === 1
-              ? ""
-              : "e"
-          } geladen`
-        );
-      }
-    } catch (error) {
-      console.error(
-        "Fehler beim Laden der Spiele:",
-        error
-      );
-
-      setMatches([]);
-
-      setMatchesStatus(
-        error instanceof Error
-          ? error.message
-          : `Fehler beim Laden der ${team}-Spiele`
-      );
-    } finally {
-      setLoadingMatches(false);
-    }
-  };
+      return token;
+    };
 
   /* =====================================================
-     TEAMS + SSO INITIALISIEREN
+     TEAMS / SSO
      ===================================================== */
 
   useEffect(() => {
@@ -238,80 +156,49 @@ function App() {
         const token =
           await getTeamsToken();
 
-        setTokenStatus(
-          "Teams SSO Token empfangen – Validierung läuft …"
-        );
-
-        const meResponse = await fetch(
-          "/api/me",
-          {
-            method: "GET",
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-              Accept:
-                "application/json"
+        const response =
+          await fetch(
+            "/api/me",
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
             }
-          }
+          );
+
+        const data =
+          (await response.json()) as MeResponse;
+
+        if (!response.ok) {
+          setTokenStatus(
+            data.error ??
+              "SSO Validierung fehlgeschlagen"
+          );
+
+          return;
+        }
+
+        setUserName(
+          data.user?.name ??
+            data.user?.username ??
+            contextUserName
         );
-
-        const meData =
-          (await meResponse.json()) as MeResponse;
-
-        if (!meResponse.ok) {
-          console.error(
-            "/api/me Fehler:",
-            meData
-          );
-
-          setTokenStatus(
-            meData.error
-              ? `SSO Validierung fehlgeschlagen: ${meData.error}`
-              : `SSO Validierung fehlgeschlagen (${meResponse.status})`
-          );
-
-          return;
-        }
-
-        if (!meData.authenticated) {
-          setTokenStatus(
-            "Teams SSO konnte nicht bestätigt werden"
-          );
-
-          return;
-        }
-
-        const validatedUserName =
-          meData.user?.name ??
-          meData.user?.username ??
-          contextUserName;
-
-        if (validatedUserName) {
-          setUserName(
-            validatedUserName
-          );
-        }
 
         setTokenStatus(
           "Teams SSO erfolgreich serverseitig validiert"
         );
 
-        /*
-         * Erst jetzt API Aufrufe freigeben.
-         */
         setTeamsReady(true);
       } catch (error) {
         console.error(
-          "Teams Initialisierung:",
+          "Teams Init Fehler:",
           error
         );
 
         setStatus(
-          "AKA Goals läuft aktuell außerhalb von Microsoft Teams"
+          "AKA Goals läuft außerhalb von Microsoft Teams"
         );
-
-        setTokenStatus("");
-        setTeamsReady(false);
       }
     };
 
@@ -319,8 +206,75 @@ function App() {
   }, []);
 
   /* =====================================================
-     NACH ERFOLGREICHEM LOGIN U15 LADEN
+     MATCHES
      ===================================================== */
+
+  const loadMatches =
+    async (
+      team: TeamName
+    ) => {
+      setLoadingMatches(true);
+
+      setMatches([]);
+
+      setMatchesStatus(
+        `${team}-Spiele werden geladen …`
+      );
+
+      try {
+        const token =
+          await getTeamsToken();
+
+        const response =
+          await fetch(
+            `/api/matches?team=${encodeURIComponent(
+              team
+            )}`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
+            }
+          );
+
+        const data =
+          (await response.json()) as MatchesResponse;
+
+        if (!response.ok) {
+          setMatchesStatus(
+            data.error ??
+              "Spiele konnten nicht geladen werden"
+          );
+
+          return;
+        }
+
+        const loaded =
+          Array.isArray(data.matches)
+            ? data.matches
+            : [];
+
+        setMatches(loaded);
+
+        setMatchesStatus(
+          loaded.length === 0
+            ? `Keine ${team}-Spiele gefunden`
+            : `${loaded.length} ${team}-Spiele geladen`
+        );
+      } catch (error) {
+        console.error(
+          "Matches Fehler:",
+          error
+        );
+
+        setMatchesStatus(
+          "Fehler beim Laden der Spiele"
+        );
+      } finally {
+        setLoadingMatches(false);
+      }
+    };
 
   useEffect(() => {
     if (!teamsReady) {
@@ -333,58 +287,138 @@ function App() {
   }, [teamsReady]);
 
   /* =====================================================
-     TEAM AUSWÄHLEN
+     EVENTS
      ===================================================== */
 
-  const selectTeam = (
-    team: TeamName
-  ) => {
-    setSelectedTeam(team);
+  const loadEvents =
+    async (
+      match: MatchItem
+    ) => {
+      if (match.id == null) {
+        return;
+      }
 
-    void loadMatches(team);
-  };
+      setSelectedMatch(match);
+
+      setLoadingEvents(true);
+
+      setEvents([]);
+
+      setEventsStatus(
+        "Tore und Gegentore werden geladen …"
+      );
+
+      try {
+        const token =
+          await getTeamsToken();
+
+        const response =
+          await fetch(
+            `/api/events?match_id=${encodeURIComponent(
+              String(match.id)
+            )}`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
+            }
+          );
+
+        const data =
+          (await response.json()) as EventsResponse;
+
+        if (!response.ok) {
+          setEventsStatus(
+            data.error ??
+              "Events konnten nicht geladen werden"
+          );
+
+          return;
+        }
+
+        const loaded =
+          Array.isArray(data.events)
+            ? data.events
+            : [];
+
+        setEvents(loaded);
+
+        setEventsStatus(
+          loaded.length === 0
+            ? "Für dieses Spiel sind noch keine Tore oder Gegentore erfasst."
+            : `${loaded.length} Ereignisse geladen`
+        );
+      } catch (error) {
+        console.error(
+          "Events Fehler:",
+          error
+        );
+
+        setEventsStatus(
+          "Fehler beim Laden der Events"
+        );
+      } finally {
+        setLoadingEvents(false);
+      }
+    };
 
   /* =====================================================
-     MATCH FORMATIERUNG
+     TEAM AUSWAHL
      ===================================================== */
 
-  const getMatchTitle = (
-    match: MatchItem
-  ): string => {
-    if (
-      typeof match.opponent === "string" &&
-      match.opponent.trim()
-    ) {
-      return match.opponent;
-    }
+  const selectTeam =
+    (
+      team: TeamName
+    ) => {
+      setSelectedTeam(team);
 
-    return "Unbekannter Gegner";
-  };
+      setSelectedMatch(null);
+      setEvents([]);
 
-  const getMatchDate = (
-    match: MatchItem
-  ): string => {
-    const rawDate =
-      typeof match.date === "string"
-        ? match.date
-        : typeof match.match_date === "string"
-          ? match.match_date
-          : "";
+      void loadMatches(team);
+    };
 
-    if (!rawDate) {
-      return "";
-    }
+  /* =====================================================
+     HELPERS
+     ===================================================== */
 
-    try {
+  const getMatchTitle =
+    (
+      match: MatchItem
+    ) => {
+      return typeof match.opponent ===
+        "string"
+        ? match.opponent
+        : "Unbekannter Gegner";
+    };
+
+  const getMatchDate =
+    (
+      match: MatchItem
+    ) => {
+      const raw =
+        typeof match.date ===
+        "string"
+          ? match.date
+          : typeof match.match_date ===
+              "string"
+            ? match.match_date
+            : "";
+
+      if (!raw) {
+        return "";
+      }
+
       const date =
-        new Date(rawDate);
+        new Date(raw);
 
       if (
         Number.isNaN(
           date.getTime()
         )
       ) {
-        return rawDate;
+        return raw;
       }
 
       return new Intl.DateTimeFormat(
@@ -395,30 +429,41 @@ function App() {
           year: "numeric"
         }
       ).format(date);
-    } catch {
-      return rawDate;
-    }
-  };
+    };
 
-  const getCompetition = (
-    match: MatchItem
-  ): string => {
-    if (
-      typeof match.competition === "string" &&
-      match.competition.trim()
-    ) {
-      return match.competition;
-    }
+  const getCompetition =
+    (
+      match: MatchItem
+    ) => {
+      if (
+        typeof match.competition ===
+        "string"
+      ) {
+        return match.competition;
+      }
 
-    if (
-      typeof match.competition_type === "string" &&
-      match.competition_type.trim()
-    ) {
-      return match.competition_type;
-    }
+      if (
+        typeof match.competition_type ===
+        "string"
+      ) {
+        return match.competition_type;
+      }
 
-    return "";
-  };
+      return "";
+    };
+
+  const goals =
+    events.filter(
+      (event) =>
+        event.event_type === "Tor"
+    );
+
+  const concededGoals =
+    events.filter(
+      (event) =>
+        event.event_type ===
+        "Gegentor"
+    );
 
   /* =====================================================
      UI
@@ -427,15 +472,13 @@ function App() {
   return (
     <div className="app">
       <header>
-        <div>
-          <h1>
-            AKA Goals
-          </h1>
+        <h1>
+          AKA Goals
+        </h1>
 
-          <span>
-            SV Oberbank Ried
-          </span>
-        </div>
+        <span>
+          SV Oberbank Ried
+        </span>
       </header>
 
       <main>
@@ -456,11 +499,9 @@ function App() {
           {status}
         </p>
 
-        {tokenStatus && (
-          <p className="status">
-            {tokenStatus}
-          </p>
-        )}
+        <p className="status">
+          {tokenStatus}
+        </p>
 
         {/* TEAM AUSWAHL */}
 
@@ -477,18 +518,6 @@ function App() {
                 onClick={() =>
                   selectTeam(team)
                 }
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (
-                    event.key ===
-                      "Enter" ||
-                    event.key ===
-                      " "
-                  ) {
-                    selectTeam(team);
-                  }
-                }}
               >
                 <h3>
                   {team}
@@ -502,105 +531,299 @@ function App() {
           )}
         </div>
 
-        {/* SPIELE */}
+        {/* MATCH DETAIL */}
 
-        <section
-          style={{
-            marginTop: "32px"
-          }}
-        >
-          <h2>
-            {selectedTeam} Spiele
-          </h2>
+        {selectedMatch ? (
+          <section
+            style={{
+              marginTop: "32px"
+            }}
+          >
+            <button
+              onClick={() => {
+                setSelectedMatch(
+                  null
+                );
 
-          {matchesStatus && (
-            <p className="status">
-              {matchesStatus}
-            </p>
-          )}
+                setEvents([]);
+              }}
+              style={{
+                marginBottom:
+                  "20px"
+              }}
+            >
+              ← Zurück zu den Spielen
+            </button>
 
-          {loadingMatches && (
+            <h2>
+              {
+                selectedTeam
+              }{" "}
+              –{" "}
+              {getMatchTitle(
+                selectedMatch
+              )}
+            </h2>
+
             <p>
-              Daten werden geladen …
+              {getMatchDate(
+                selectedMatch
+              )}
             </p>
-          )}
 
-          {!loadingMatches &&
-            matches.length > 0 && (
+            {getCompetition(
+              selectedMatch
+            ) && (
+              <p>
+                {
+                  getCompetition(
+                    selectedMatch
+                  )
+                }
+              </p>
+            )}
+
+            <p className="status">
+              {eventsStatus}
+            </p>
+
+            {loadingEvents && (
+              <p>
+                Daten werden geladen …
+              </p>
+            )}
+
+            {!loadingEvents && (
               <div
                 style={{
-                  display: "grid",
-                  gap: "12px",
+                  display:
+                    "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(300px, 1fr))",
+                  gap: "20px",
                   marginTop:
-                    "16px"
+                    "25px"
                 }}
               >
-                {matches.map(
-                  (
-                    match,
-                    index
-                  ) => {
-                    const date =
-                      getMatchDate(
-                        match
-                      );
+                {/* TORE */}
 
-                    const competition =
-                      getCompetition(
-                        match
-                      );
+                <div className="card">
+                  <h2>
+                    Tore ({goals.length})
+                  </h2>
 
-                    return (
+                  {goals.length === 0 && (
+                    <p>
+                      Keine Tore erfasst.
+                    </p>
+                  )}
+
+                  {goals.map(
+                    (
+                      event,
+                      index
+                    ) => (
                       <div
                         key={String(
-                          match.id ??
+                          event.id ??
                             index
                         )}
-                        className="card match-card"
+                        style={{
+                          borderTop:
+                            "1px solid #ddd",
+                          padding:
+                            "12px 0"
+                        }}
                       >
-                        <h3>
-                          {getMatchTitle(
-                            match
-                          )}
-                        </h3>
+                        <strong>
+                          {event.minute !=
+                          null
+                            ? `${event.minute}. Minute`
+                            : "Minute unbekannt"}
+                        </strong>
 
-                        {date && (
+                        {event.scorer && (
                           <p>
-                            <strong>
-                              Datum:
-                            </strong>{" "}
-                            {date}
-                          </p>
-                        )}
-
-                        {competition && (
-                          <p>
-                            <strong>
-                              Bewerb:
-                            </strong>{" "}
+                            Torschütze:{" "}
                             {
-                              competition
+                              event.scorer
                             }
                           </p>
                         )}
 
-                        {match.team && (
+                        {event.assister && (
                           <p>
-                            <strong>
-                              Team:
-                            </strong>{" "}
-                            {String(
-                              match.team
-                            )}
+                            Assist:{" "}
+                            {
+                              event.assister
+                            }
+                          </p>
+                        )}
+
+                        {event.phase && (
+                          <p>
+                            Phase:{" "}
+                            {
+                              event.phase
+                            }
                           </p>
                         )}
                       </div>
-                    );
-                  }
-                )}
+                    )
+                  )}
+                </div>
+
+                {/* GEGENTORE */}
+
+                <div className="card">
+                  <h2>
+                    Gegentore (
+                    {
+                      concededGoals.length
+                    }
+                    )
+                  </h2>
+
+                  {concededGoals.length ===
+                    0 && (
+                    <p>
+                      Keine Gegentore
+                      erfasst.
+                    </p>
+                  )}
+
+                  {concededGoals.map(
+                    (
+                      event,
+                      index
+                    ) => (
+                      <div
+                        key={String(
+                          event.id ??
+                            index
+                        )}
+                        style={{
+                          borderTop:
+                            "1px solid #ddd",
+                          padding:
+                            "12px 0"
+                        }}
+                      >
+                        <strong>
+                          {event.minute !=
+                          null
+                            ? `${event.minute}. Minute`
+                            : "Minute unbekannt"}
+                        </strong>
+
+                        {event.phase && (
+                          <p>
+                            Phase:{" "}
+                            {
+                              event.phase
+                            }
+                          </p>
+                        )}
+
+                        {event.creation_type && (
+                          <p>
+                            Entstehung:{" "}
+                            {
+                              event.creation_type
+                            }
+                          </p>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
               </div>
             )}
-        </section>
+          </section>
+        ) : (
+          /* SPIELLISTE */
+
+          <section
+            style={{
+              marginTop: "32px"
+            }}
+          >
+            <h2>
+              {selectedTeam} Spiele
+            </h2>
+
+            <p className="status">
+              {matchesStatus}
+            </p>
+
+            {loadingMatches && (
+              <p>
+                Daten werden geladen …
+              </p>
+            )}
+
+            {!loadingMatches &&
+              matches.map(
+                (
+                  match,
+                  index
+                ) => (
+                  <div
+                    key={String(
+                      match.id ??
+                        index
+                    )}
+                    className="card match-card"
+                    onClick={() =>
+                      void loadEvents(
+                        match
+                      )
+                    }
+                    style={{
+                      cursor:
+                        "pointer",
+                      marginBottom:
+                        "12px"
+                    }}
+                  >
+                    <h3>
+                      {getMatchTitle(
+                        match
+                      )}
+                    </h3>
+
+                    <p>
+                      <strong>
+                        Datum:
+                      </strong>{" "}
+                      {getMatchDate(
+                        match
+                      )}
+                    </p>
+
+                    {getCompetition(
+                      match
+                    ) && (
+                      <p>
+                        <strong>
+                          Bewerb:
+                        </strong>{" "}
+                        {
+                          getCompetition(
+                            match
+                          )
+                        }
+                      </p>
+                    )}
+
+                    <p>
+                      Öffnen →
+                    </p>
+                  </div>
+                )
+              )}
+          </section>
+        )}
       </main>
     </div>
   );
