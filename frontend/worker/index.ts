@@ -32,10 +32,6 @@ const JWKS_V1 = createRemoteJWKSet(
   )
 );
 
-/* =========================================================
-   TEAMS TOKEN
-   ========================================================= */
-
 async function validateTeamsToken(
   request: Request
 ): Promise<JWTPayload> {
@@ -110,10 +106,6 @@ async function validateTeamsToken(
 
   return result.payload;
 }
-
-/* =========================================================
-   SUPABASE
-   ========================================================= */
 
 function checkSupabaseEnv(
   env: Env
@@ -359,10 +351,6 @@ type CreateEventBody = {
   end_y?: number | null;
 };
 
-type DeleteEventBody = {
-  id?: number | string;
-};
-
 /* =========================================================
    GET EVENTS
    ========================================================= */
@@ -603,27 +591,17 @@ async function deleteEvent(
   request: Request,
   env: Env
 ): Promise<Response> {
-  let body: DeleteEventBody;
-
-  try {
-    body =
-      (await request.json()) as DeleteEventBody;
-  } catch {
-    return Response.json(
-      {
-        error:
-          "Ungültiger JSON Body"
-      },
-      {
-        status: 400
-      }
+  const url =
+    new URL(
+      request.url
     );
-  }
 
-  if (
-    body.id == null ||
-    body.id === ""
-  ) {
+  const eventId =
+    url.searchParams.get(
+      "id"
+    );
+
+  if (!eventId) {
     return Response.json(
       {
         error:
@@ -635,13 +613,16 @@ async function deleteEvent(
     );
   }
 
+  console.log(
+    "Delete goal_event ID:",
+    eventId
+  );
+
   const response =
     await supabaseRequest(
       env,
       `goal_events?id=eq.${encodeURIComponent(
-        String(
-          body.id
-        )
+        eventId
       )}`,
       {
         method:
@@ -649,7 +630,7 @@ async function deleteEvent(
 
         headers: {
           Prefer:
-            "return=representation"
+            "return=minimal"
         }
       }
     );
@@ -657,6 +638,11 @@ async function deleteEvent(
   if (!response.ok) {
     const details =
       await response.text();
+
+    console.error(
+      "Supabase DELETE error:",
+      details
+    );
 
     return Response.json(
       {
@@ -671,30 +657,10 @@ async function deleteEvent(
     );
   }
 
-  const deleted =
-    await response.json();
-
-  if (
-    !Array.isArray(
-      deleted
-    ) ||
-    deleted.length === 0
-  ) {
-    return Response.json(
-      {
-        error:
-          "Kein Event mit dieser ID gefunden"
-      },
-      {
-        status: 404
-      }
-    );
-  }
-
   return Response.json({
     success: true,
-    deleted:
-      deleted[0]
+    deletedId:
+      eventId
   });
 }
 
