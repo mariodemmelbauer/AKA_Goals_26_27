@@ -320,8 +320,6 @@ async function handleMatches(
       kann man das später anpassen.
     */
 
-    query +=
-      "&order=date.asc";
 
     const response =
       await supabaseRequest(
