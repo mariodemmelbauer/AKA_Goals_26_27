@@ -9,6 +9,10 @@ type TeamName =
   | "JWR"
   | "Profis";
 
+type EventType =
+  | "Tor"
+  | "Gegentor";
+
 type ApiUser = {
   name?: string | null;
   username?: string | null;
@@ -42,23 +46,19 @@ type GoalEvent = {
   id?: number | string;
   match_id?: number | string;
   team?: string;
-
   event_type?: string;
-
   minute?: number | null;
-
   scorer?: string | null;
   assister?: string | null;
-
   phase?: string | null;
   creation_type?: string | null;
-
   [key: string]: unknown;
 };
 
 type EventsResponse = {
   success?: boolean;
   events?: GoalEvent[];
+  event?: GoalEvent;
   error?: string;
   details?: string;
 };
@@ -69,6 +69,27 @@ const TEAMS: TeamName[] = [
   "U18",
   "JWR",
   "Profis"
+];
+
+const PHASES = [
+  "",
+  "Kontrollierter Spielaufbau",
+  "Umschalten nach Ballgewinn",
+  "Umschalten nach Ballverlust",
+  "Standard",
+  "Sonstiges"
+];
+
+const CREATION_TYPES = [
+  "",
+  "Steckpass",
+  "Cutback",
+  "Flanke",
+  "Durchbruch",
+  "Distanzschuss",
+  "Zweiter Ball",
+  "Standard",
+  "Sonstiges"
 ];
 
 function App() {
@@ -107,6 +128,37 @@ function App() {
 
   const [loadingEvents, setLoadingEvents] =
     useState(false);
+
+  /* =====================================================
+     EVENT FORM
+     ===================================================== */
+
+  const [showEventForm, setShowEventForm] =
+    useState(false);
+
+  const [eventType, setEventType] =
+    useState<EventType>("Tor");
+
+  const [minute, setMinute] =
+    useState("");
+
+  const [scorer, setScorer] =
+    useState("");
+
+  const [assister, setAssister] =
+    useState("");
+
+  const [phase, setPhase] =
+    useState("");
+
+  const [creationType, setCreationType] =
+    useState("");
+
+  const [savingEvent, setSavingEvent] =
+    useState(false);
+
+  const [saveStatus, setSaveStatus] =
+    useState("");
 
   /* =====================================================
      TEAMS TOKEN
@@ -206,7 +258,7 @@ function App() {
   }, []);
 
   /* =====================================================
-     MATCHES
+     MATCHES LADEN
      ===================================================== */
 
   const loadMatches =
@@ -214,9 +266,7 @@ function App() {
       team: TeamName
     ) => {
       setLoadingMatches(true);
-
       setMatches([]);
-
       setMatchesStatus(
         `${team}-Spiele werden geladen …`
       );
@@ -251,11 +301,15 @@ function App() {
         }
 
         const loaded =
-          Array.isArray(data.matches)
+          Array.isArray(
+            data.matches
+          )
             ? data.matches
             : [];
 
-        setMatches(loaded);
+        setMatches(
+          loaded
+        );
 
         setMatchesStatus(
           loaded.length === 0
@@ -287,20 +341,26 @@ function App() {
   }, [teamsReady]);
 
   /* =====================================================
-     EVENTS
+     EVENTS LADEN
      ===================================================== */
 
   const loadEvents =
     async (
       match: MatchItem
     ) => {
-      if (match.id == null) {
+      if (
+        match.id == null
+      ) {
         return;
       }
 
-      setSelectedMatch(match);
+      setSelectedMatch(
+        match
+      );
 
-      setLoadingEvents(true);
+      setLoadingEvents(
+        true
+      );
 
       setEvents([]);
 
@@ -315,7 +375,9 @@ function App() {
         const response =
           await fetch(
             `/api/events?match_id=${encodeURIComponent(
-              String(match.id)
+              String(
+                match.id
+              )
             )}`,
             {
               headers: {
@@ -338,11 +400,15 @@ function App() {
         }
 
         const loaded =
-          Array.isArray(data.events)
+          Array.isArray(
+            data.events
+          )
             ? data.events
             : [];
 
-        setEvents(loaded);
+        setEvents(
+          loaded
+        );
 
         setEventsStatus(
           loaded.length === 0
@@ -359,24 +425,220 @@ function App() {
           "Fehler beim Laden der Events"
         );
       } finally {
-        setLoadingEvents(false);
+        setLoadingEvents(
+          false
+        );
       }
     };
 
   /* =====================================================
-     TEAM AUSWAHL
+     EVENT FORM ÖFFNEN
+     ===================================================== */
+
+  const openEventForm =
+    (
+      type: EventType
+    ) => {
+      setEventType(
+        type
+      );
+
+      setMinute("");
+      setScorer("");
+      setAssister("");
+      setPhase("");
+      setCreationType("");
+      setSaveStatus("");
+
+      setShowEventForm(
+        true
+      );
+    };
+
+  /* =====================================================
+     EVENT SPEICHERN
+     ===================================================== */
+
+  const saveEvent =
+    async () => {
+      if (
+        !selectedMatch ||
+        selectedMatch.id == null
+      ) {
+        return;
+      }
+
+      const parsedMinute =
+        minute.trim() === ""
+          ? null
+          : Number(minute);
+
+      if (
+        parsedMinute !== null &&
+        (
+          !Number.isInteger(
+            parsedMinute
+          ) ||
+          parsedMinute < 0 ||
+          parsedMinute > 130
+        )
+      ) {
+        setSaveStatus(
+          "Bitte eine gültige Minute zwischen 0 und 130 eingeben."
+        );
+
+        return;
+      }
+
+      setSavingEvent(
+        true
+      );
+
+      setSaveStatus(
+        "Ereignis wird gespeichert …"
+      );
+
+      try {
+        const token =
+          await getTeamsToken();
+
+        const response =
+          await fetch(
+            "/api/events",
+            {
+              method:
+                "POST",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+
+                "Content-Type":
+                  "application/json"
+              },
+
+              body:
+                JSON.stringify({
+                  match_id:
+                    selectedMatch.id,
+
+                  team:
+                    selectedTeam,
+
+                  event_type:
+                    eventType,
+
+                  minute:
+                    parsedMinute,
+
+                  scorer:
+                    eventType ===
+                    "Tor"
+                      ? scorer
+                      : null,
+
+                  assister:
+                    eventType ===
+                    "Tor"
+                      ? assister
+                      : null,
+
+                  phase,
+
+                  creation_type:
+                    creationType
+                })
+            }
+          );
+
+        const data =
+          (await response.json()) as EventsResponse;
+
+        if (!response.ok) {
+          console.error(
+            "Event speichern Fehler:",
+            data
+          );
+
+          setSaveStatus(
+            data.details
+              ? `${data.error} – ${data.details}`
+              : data.error ??
+                  "Event konnte nicht gespeichert werden"
+          );
+
+          return;
+        }
+
+        setSaveStatus(
+          eventType === "Tor"
+            ? "Tor erfolgreich erfasst."
+            : "Gegentor erfolgreich erfasst."
+        );
+
+        /*
+          Events danach neu laden.
+        */
+
+        await loadEvents(
+          selectedMatch
+        );
+
+        /*
+          Formular nach kurzer Bestätigung schließen.
+        */
+
+        setTimeout(
+          () => {
+            setShowEventForm(
+              false
+            );
+
+            setSaveStatus("");
+          },
+          1000
+        );
+      } catch (error) {
+        console.error(
+          "Event speichern:",
+          error
+        );
+
+        setSaveStatus(
+          "Fehler beim Speichern des Ereignisses."
+        );
+      } finally {
+        setSavingEvent(
+          false
+        );
+      }
+    };
+
+  /* =====================================================
+     TEAM AUSWÄHLEN
      ===================================================== */
 
   const selectTeam =
     (
       team: TeamName
     ) => {
-      setSelectedTeam(team);
+      setSelectedTeam(
+        team
+      );
 
-      setSelectedMatch(null);
+      setSelectedMatch(
+        null
+      );
+
       setEvents([]);
 
-      void loadMatches(team);
+      setShowEventForm(
+        false
+      );
+
+      void loadMatches(
+        team
+      );
     };
 
   /* =====================================================
@@ -424,11 +686,18 @@ function App() {
       return new Intl.DateTimeFormat(
         "de-DE",
         {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric"
+          day:
+            "2-digit",
+
+          month:
+            "2-digit",
+
+          year:
+            "numeric"
         }
-      ).format(date);
+      ).format(
+        date
+      );
     };
 
   const getCompetition =
@@ -455,7 +724,8 @@ function App() {
   const goals =
     events.filter(
       (event) =>
-        event.event_type === "Tor"
+        event.event_type ===
+        "Tor"
     );
 
   const concededGoals =
@@ -471,6 +741,7 @@ function App() {
 
   return (
     <div className="app">
+
       <header>
         <h1>
           AKA Goals
@@ -482,6 +753,7 @@ function App() {
       </header>
 
       <main>
+
         <h2>
           AKA Goals Dashboard
         </h2>
@@ -503,20 +775,29 @@ function App() {
           {tokenStatus}
         </p>
 
-        {/* TEAM AUSWAHL */}
+        {/* =============================
+            TEAM AUSWAHL
+            ============================= */}
 
         <div className="cards">
+
           {TEAMS.map(
             (team) => (
+
               <div
                 key={team}
+
                 className={`card team-card ${
-                  selectedTeam === team
+                  selectedTeam ===
+                  team
                     ? "active-team"
                     : ""
                 }`}
+
                 onClick={() =>
-                  selectTeam(team)
+                  selectTeam(
+                    team
+                  )
                 }
               >
                 <h3>
@@ -526,19 +807,27 @@ function App() {
                 <p>
                   Goals &amp; Analysis
                 </p>
+
               </div>
+
             )
           )}
+
         </div>
 
-        {/* MATCH DETAIL */}
+        {/* =============================
+            MATCH DETAIL
+            ============================= */}
 
         {selectedMatch ? (
+
           <section
             style={{
-              marginTop: "32px"
+              marginTop:
+                "32px"
             }}
           >
+
             <button
               onClick={() => {
                 setSelectedMatch(
@@ -546,20 +835,18 @@ function App() {
                 );
 
                 setEvents([]);
-              }}
-              style={{
-                marginBottom:
-                  "20px"
+
+                setShowEventForm(
+                  false
+                );
               }}
             >
               ← Zurück zu den Spielen
             </button>
 
             <h2>
-              {
-                selectedTeam
-              }{" "}
-              –{" "}
+              {selectedTeam}
+              {" – "}
               {getMatchTitle(
                 selectedMatch
               )}
@@ -575,12 +862,292 @@ function App() {
               selectedMatch
             ) && (
               <p>
-                {
-                  getCompetition(
-                    selectedMatch
+                {getCompetition(
+                  selectedMatch
+                )}
+              </p>
+            )}
+
+            {/* =========================
+                ACTION BUTTONS
+                ========================= */}
+
+            <div
+              style={{
+                display:
+                  "flex",
+
+                justifyContent:
+                  "center",
+
+                gap:
+                  "12px",
+
+                flexWrap:
+                  "wrap",
+
+                margin:
+                  "24px 0"
+              }}
+            >
+
+              <button
+                onClick={() =>
+                  openEventForm(
+                    "Tor"
                   )
                 }
-              </p>
+              >
+                + Tor erfassen
+              </button>
+
+              <button
+                onClick={() =>
+                  openEventForm(
+                    "Gegentor"
+                  )
+                }
+              >
+                + Gegentor erfassen
+              </button>
+
+            </div>
+
+            {/* =========================
+                EVENT FORM
+                ========================= */}
+
+            {showEventForm && (
+
+              <div
+                className="card"
+                style={{
+                  maxWidth:
+                    "600px",
+
+                  margin:
+                    "0 auto 30px",
+
+                  textAlign:
+                    "left"
+                }}
+              >
+
+                <h2>
+                  {eventType} erfassen
+                </h2>
+
+                <div className="event-form">
+
+                  <label>
+                    Minute
+
+                    <input
+                      type="number"
+                      min="0"
+                      max="130"
+
+                      value={
+                        minute
+                      }
+
+                      onChange={(
+                        event
+                      ) =>
+                        setMinute(
+                          event.target
+                            .value
+                        )
+                      }
+
+                      placeholder="z. B. 35"
+                    />
+                  </label>
+
+                  {eventType ===
+                    "Tor" && (
+                    <>
+                      <label>
+                        Torschütze
+
+                        <input
+                          type="text"
+
+                          value={
+                            scorer
+                          }
+
+                          onChange={(
+                            event
+                          ) =>
+                            setScorer(
+                              event.target
+                                .value
+                            )
+                          }
+
+                          placeholder="Name"
+                        />
+                      </label>
+
+                      <label>
+                        Assist
+
+                        <input
+                          type="text"
+
+                          value={
+                            assister
+                          }
+
+                          onChange={(
+                            event
+                          ) =>
+                            setAssister(
+                              event.target
+                                .value
+                            )
+                          }
+
+                          placeholder="Name"
+                        />
+                      </label>
+                    </>
+                  )}
+
+                  <label>
+                    Phase
+
+                    <select
+                      value={
+                        phase
+                      }
+
+                      onChange={(
+                        event
+                      ) =>
+                        setPhase(
+                          event.target
+                            .value
+                        )
+                      }
+                    >
+                      {PHASES.map(
+                        (
+                          item
+                        ) => (
+                          <option
+                            key={
+                              item
+                            }
+
+                            value={
+                              item
+                            }
+                          >
+                            {item ||
+                              "Bitte auswählen"}
+                          </option>
+                        )
+                      )}
+                    </select>
+
+                  </label>
+
+                  <label>
+                    Entstehung
+
+                    <select
+                      value={
+                        creationType
+                      }
+
+                      onChange={(
+                        event
+                      ) =>
+                        setCreationType(
+                          event.target
+                            .value
+                        )
+                      }
+                    >
+
+                      {CREATION_TYPES.map(
+                        (
+                          item
+                        ) => (
+                          <option
+                            key={
+                              item
+                            }
+
+                            value={
+                              item
+                            }
+                          >
+                            {item ||
+                              "Bitte auswählen"}
+                          </option>
+                        )
+                      )}
+
+                    </select>
+
+                  </label>
+
+                </div>
+
+                {saveStatus && (
+                  <p className="status">
+                    {saveStatus}
+                  </p>
+                )}
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+
+                    gap:
+                      "10px",
+
+                    marginTop:
+                      "20px"
+                  }}
+                >
+
+                  <button
+                    onClick={() =>
+                      void saveEvent()
+                    }
+
+                    disabled={
+                      savingEvent
+                    }
+                  >
+                    {savingEvent
+                      ? "Speichern …"
+                      : "Speichern"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowEventForm(
+                        false
+                      );
+
+                      setSaveStatus(
+                        ""
+                      );
+                    }}
+                  >
+                    Abbrechen
+                  </button>
+
+                </div>
+
+              </div>
+
             )}
 
             <p className="status">
@@ -593,26 +1160,40 @@ function App() {
               </p>
             )}
 
+            {/* =========================
+                TOR / GEGENTOR LISTEN
+                ========================= */}
+
             {!loadingEvents && (
+
               <div
                 style={{
                   display:
                     "grid",
+
                   gridTemplateColumns:
                     "repeat(auto-fit, minmax(300px, 1fr))",
-                  gap: "20px",
+
+                  gap:
+                    "20px",
+
                   marginTop:
                     "25px"
                 }}
               >
+
                 {/* TORE */}
 
                 <div className="card">
+
                   <h2>
-                    Tore ({goals.length})
+                    Tore (
+                    {goals.length}
+                    )
                   </h2>
 
-                  {goals.length === 0 && (
+                  {goals.length ===
+                    0 && (
                     <p>
                       Keine Tore erfasst.
                     </p>
@@ -623,18 +1204,22 @@ function App() {
                       event,
                       index
                     ) => (
+
                       <div
                         key={String(
                           event.id ??
                             index
                         )}
+
                         style={{
                           borderTop:
                             "1px solid #ddd",
+
                           padding:
                             "12px 0"
                         }}
                       >
+
                         <strong>
                           {event.minute !=
                           null
@@ -668,14 +1253,27 @@ function App() {
                             }
                           </p>
                         )}
+
+                        {event.creation_type && (
+                          <p>
+                            Entstehung:{" "}
+                            {
+                              event.creation_type
+                            }
+                          </p>
+                        )}
+
                       </div>
+
                     )
                   )}
+
                 </div>
 
                 {/* GEGENTORE */}
 
                 <div className="card">
+
                   <h2>
                     Gegentore (
                     {
@@ -687,8 +1285,7 @@ function App() {
                   {concededGoals.length ===
                     0 && (
                     <p>
-                      Keine Gegentore
-                      erfasst.
+                      Keine Gegentore erfasst.
                     </p>
                   )}
 
@@ -697,18 +1294,22 @@ function App() {
                       event,
                       index
                     ) => (
+
                       <div
                         key={String(
                           event.id ??
                             index
                         )}
+
                         style={{
                           borderTop:
                             "1px solid #ddd",
+
                           padding:
                             "12px 0"
                         }}
                       >
+
                         <strong>
                           {event.minute !=
                           null
@@ -733,21 +1334,33 @@ function App() {
                             }
                           </p>
                         )}
+
                       </div>
+
                     )
                   )}
+
                 </div>
+
               </div>
+
             )}
+
           </section>
+
         ) : (
-          /* SPIELLISTE */
+
+          /* =============================
+             SPIELLISTE
+             ============================= */
 
           <section
             style={{
-              marginTop: "32px"
+              marginTop:
+                "32px"
             }}
           >
+
             <h2>
               {selectedTeam} Spiele
             </h2>
@@ -768,24 +1381,30 @@ function App() {
                   match,
                   index
                 ) => (
+
                   <div
                     key={String(
                       match.id ??
                         index
                     )}
+
                     className="card match-card"
+
                     onClick={() =>
                       void loadEvents(
                         match
                       )
                     }
+
                     style={{
                       cursor:
                         "pointer",
+
                       marginBottom:
                         "12px"
                     }}
                   >
+
                     <h3>
                       {getMatchTitle(
                         match
@@ -808,23 +1427,27 @@ function App() {
                         <strong>
                           Bewerb:
                         </strong>{" "}
-                        {
-                          getCompetition(
-                            match
-                          )
-                        }
+                        {getCompetition(
+                          match
+                        )}
                       </p>
                     )}
 
                     <p>
                       Öffnen →
                     </p>
+
                   </div>
+
                 )
               )}
+
           </section>
+
         )}
+
       </main>
+
     </div>
   );
 }

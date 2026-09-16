@@ -76,3 +76,42 @@ main {
 .match-card {
   text-align: center;
 }
+
+.event-form {
+  display: grid;
+  gap: 16px;
+}
+
+.event-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.event-form input,
+.event-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 15px;
+  background: #fff;
+}
+
+button {
+  cursor: pointer;
+  padding: 9px 14px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  background: #fff;
+}
+
+button:hover {
+  background: #f1f1f1;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
