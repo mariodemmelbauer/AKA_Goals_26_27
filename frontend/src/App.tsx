@@ -63,6 +63,11 @@ type EventsResponse = {
   details?: string;
 };
 
+type PitchPoint = {
+  x: number;
+  y: number;
+};
+
 const TEAMS: TeamName[] = [
   "U15",
   "U16",
@@ -129,10 +134,6 @@ function App() {
   const [loadingEvents, setLoadingEvents] =
     useState(false);
 
-  /* =====================================================
-     EVENT FORM
-     ===================================================== */
-
   const [showEventForm, setShowEventForm] =
     useState(false);
 
@@ -159,6 +160,12 @@ function App() {
 
   const [saveStatus, setSaveStatus] =
     useState("");
+
+  const [assistPoint, setAssistPoint] =
+    useState<PitchPoint | null>(null);
+
+  const [finishPoint, setFinishPoint] =
+    useState<PitchPoint | null>(null);
 
   /* =====================================================
      TEAMS TOKEN
@@ -301,9 +308,7 @@ function App() {
         }
 
         const loaded =
-          Array.isArray(
-            data.matches
-          )
+          Array.isArray(data.matches)
             ? data.matches
             : [];
 
@@ -375,9 +380,7 @@ function App() {
         const response =
           await fetch(
             `/api/events?match_id=${encodeURIComponent(
-              String(
-                match.id
-              )
+              String(match.id)
             )}`,
             {
               headers: {
@@ -400,9 +403,7 @@ function App() {
         }
 
         const loaded =
-          Array.isArray(
-            data.events
-          )
+          Array.isArray(data.events)
             ? data.events
             : [];
 
@@ -449,11 +450,52 @@ function App() {
       setPhase("");
       setCreationType("");
       setSaveStatus("");
+      setAssistPoint(null);
+      setFinishPoint(null);
 
       setShowEventForm(
         true
       );
     };
+
+  /* =====================================================
+     SPIELFELD KLICK
+     ===================================================== */
+
+  const handlePitchClick = (
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    const rect =
+      event.currentTarget.getBoundingClientRect();
+
+    const x =
+      ((event.clientX - rect.left) /
+        rect.width) *
+      100;
+
+    const y =
+      ((event.clientY - rect.top) /
+        rect.height) *
+      100;
+
+    const point = {
+      x: Math.round(x * 100) / 100,
+      y: Math.round(y * 100) / 100
+    };
+
+    if (!assistPoint) {
+      setAssistPoint(point);
+      return;
+    }
+
+    if (!finishPoint) {
+      setFinishPoint(point);
+      return;
+    }
+
+    setAssistPoint(point);
+    setFinishPoint(null);
+  };
 
   /* =====================================================
      EVENT SPEICHERN
@@ -576,17 +618,9 @@ function App() {
             : "Gegentor erfolgreich erfasst."
         );
 
-        /*
-          Events danach neu laden.
-        */
-
         await loadEvents(
           selectedMatch
         );
-
-        /*
-          Formular nach kurzer Bestätigung schließen.
-        */
 
         setTimeout(
           () => {
@@ -775,9 +809,7 @@ function App() {
           {tokenStatus}
         </p>
 
-        {/* =============================
-            TEAM AUSWAHL
-            ============================= */}
+        {/* TEAM AUSWAHL */}
 
         <div className="cards">
 
@@ -815,9 +847,7 @@ function App() {
 
         </div>
 
-        {/* =============================
-            MATCH DETAIL
-            ============================= */}
+        {/* MATCH DETAIL */}
 
         {selectedMatch ? (
 
@@ -868,9 +898,7 @@ function App() {
               </p>
             )}
 
-            {/* =========================
-                ACTION BUTTONS
-                ========================= */}
+            {/* ACTION BUTTONS */}
 
             <div
               style={{
@@ -913,9 +941,7 @@ function App() {
 
             </div>
 
-            {/* =========================
-                EVENT FORM
-                ========================= */}
+            {/* EVENT FORM */}
 
             {showEventForm && (
 
@@ -923,7 +949,7 @@ function App() {
                 className="card"
                 style={{
                   maxWidth:
-                    "600px",
+                    "650px",
 
                   margin:
                     "0 auto 30px",
@@ -1095,6 +1121,158 @@ function App() {
 
                   </label>
 
+                  {/* SPIELFELD */}
+
+                  <div className="pitch-section">
+
+                    <h3>
+                      Positionen
+                    </h3>
+
+                    <p className="pitch-help">
+                      {!assistPoint
+                        ? "1. Klick: Entstehung / Assist"
+                        : !finishPoint
+                          ? "2. Klick: Abschluss"
+                          : "Beide Positionen gesetzt – erneut klicken zum Neustart"}
+                    </p>
+
+                    <div
+                      className="football-pitch"
+                      onClick={
+                        handlePitchClick
+                      }
+                    >
+                      <div className="pitch-halfway-line" />
+
+                      <div className="pitch-center-circle" />
+
+                      <div className="penalty-area penalty-area-top" />
+
+                      <div className="penalty-area penalty-area-bottom" />
+
+                      <div className="goal-area goal-area-top" />
+
+                      <div className="goal-area goal-area-bottom" />
+
+                      {assistPoint && (
+                        <div
+                          className="pitch-point assist-point"
+
+                          style={{
+                            left:
+                              `${assistPoint.x}%`,
+
+                            top:
+                              `${assistPoint.y}%`
+                          }}
+                        >
+                          1
+                        </div>
+                      )}
+
+                      {finishPoint && (
+                        <div
+                          className="pitch-point finish-point"
+
+                          style={{
+                            left:
+                              `${finishPoint.x}%`,
+
+                            top:
+                              `${finishPoint.y}%`
+                          }}
+                        >
+                          2
+                        </div>
+                      )}
+
+                      {assistPoint &&
+                        finishPoint && (
+                        <svg
+                          className="pitch-line-layer"
+
+                          viewBox="0 0 100 100"
+
+                          preserveAspectRatio="none"
+                        >
+                          <line
+                            x1={
+                              assistPoint.x
+                            }
+
+                            y1={
+                              assistPoint.y
+                            }
+
+                            x2={
+                              finishPoint.x
+                            }
+
+                            y2={
+                              finishPoint.y
+                            }
+
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        </svg>
+                      )}
+
+                    </div>
+
+                    {(assistPoint ||
+                      finishPoint) && (
+
+                      <div className="pitch-values">
+
+                        {assistPoint && (
+                          <span>
+                            1:{" "}
+                            {assistPoint.x.toFixed(
+                              1
+                            )}{" "}
+                            /{" "}
+                            {assistPoint.y.toFixed(
+                              1
+                            )}
+                          </span>
+                        )}
+
+                        {finishPoint && (
+                          <span>
+                            2:{" "}
+                            {finishPoint.x.toFixed(
+                              1
+                            )}{" "}
+                            /{" "}
+                            {finishPoint.y.toFixed(
+                              1
+                            )}
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+
+                          onClick={() => {
+                            setAssistPoint(
+                              null
+                            );
+
+                            setFinishPoint(
+                              null
+                            );
+                          }}
+                        >
+                          Positionen löschen
+                        </button>
+
+                      </div>
+
+                    )}
+
+                  </div>
+
                 </div>
 
                 {saveStatus && (
@@ -1139,6 +1317,14 @@ function App() {
                       setSaveStatus(
                         ""
                       );
+
+                      setAssistPoint(
+                        null
+                      );
+
+                      setFinishPoint(
+                        null
+                      );
                     }}
                   >
                     Abbrechen
@@ -1159,10 +1345,6 @@ function App() {
                 Daten werden geladen …
               </p>
             )}
-
-            {/* =========================
-                TOR / GEGENTOR LISTEN
-                ========================= */}
 
             {!loadingEvents && (
 
@@ -1350,9 +1532,7 @@ function App() {
 
         ) : (
 
-          /* =============================
-             SPIELLISTE
-             ============================= */
+          /* SPIELLISTE */
 
           <section
             style={{
