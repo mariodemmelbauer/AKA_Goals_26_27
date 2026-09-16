@@ -20,10 +20,6 @@ const CLIENT_ID =
 const APP_ID_URI =
   "api://aka-goals-26-27.mario-demmelbauer.workers.dev/195954d1-452c-40de-8108-e6baf8a12042";
 
-/* =========================================================
-   ENTRA JWKS
-   ========================================================= */
-
 const JWKS_V2 = createRemoteJWKSet(
   new URL(
     `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
@@ -62,9 +58,7 @@ async function validateTeamsToken(
     decodeJwt(token);
 
   const version =
-    String(
-      unverified.ver ?? ""
-    );
+    String(unverified.ver ?? "");
 
   if (version === "2.0") {
     const result =
@@ -118,7 +112,7 @@ async function validateTeamsToken(
 }
 
 /* =========================================================
-   SUPABASE ENV
+   SUPABASE
    ========================================================= */
 
 function checkSupabaseEnv(
@@ -152,10 +146,6 @@ function checkSupabaseEnv(
 
   return null;
 }
-
-/* =========================================================
-   SUPABASE REQUEST
-   ========================================================= */
 
 async function supabaseRequest(
   env: Env,
@@ -247,7 +237,7 @@ async function handleMe(
 }
 
 /* =========================================================
-   /api/matches
+   MATCHES
    ========================================================= */
 
 async function handleMatches(
@@ -356,26 +346,21 @@ async function handleMatches(
 
 type CreateEventBody = {
   match_id?: number | string;
-
   team?: string;
-
   event_type?: string;
-
   minute?: number | null;
-
   scorer?: string | null;
-
   assister?: string | null;
-
   phase?: string | null;
-
   creation_type?: string | null;
-
   start_x?: number | null;
   start_y?: number | null;
-
   end_x?: number | null;
   end_y?: number | null;
+};
+
+type DeleteEventBody = {
+  id?: number | string;
 };
 
 /* =========================================================
@@ -408,15 +393,12 @@ async function getEvents(
     );
   }
 
-  const query =
-    `goal_events?select=*&match_id=eq.${encodeURIComponent(
-      matchId
-    )}&order=minute.asc`;
-
   const response =
     await supabaseRequest(
       env,
-      query
+      `goal_events?select=*&match_id=eq.${encodeURIComponent(
+        matchId
+      )}&order=minute.asc`
     );
 
   if (!response.ok) {
@@ -515,57 +497,6 @@ async function createEvent(
     );
   }
 
-  if (
-    body.minute != null &&
-    (
-      !Number.isInteger(
-        body.minute
-      ) ||
-      body.minute < 0 ||
-      body.minute > 130
-    )
-  ) {
-    return Response.json(
-      {
-        error:
-          "Minute muss zwischen 0 und 130 liegen"
-      },
-      {
-        status: 400
-      }
-    );
-  }
-
-  const coordinateValues = [
-    body.start_x,
-    body.start_y,
-    body.end_x,
-    body.end_y
-  ];
-
-  for (
-    const value of coordinateValues
-  ) {
-    if (
-      value != null &&
-      (
-        typeof value !== "number" ||
-        value < 0 ||
-        value > 100
-      )
-    ) {
-      return Response.json(
-        {
-          error:
-            "Koordinaten müssen zwischen 0 und 100 liegen"
-        },
-        {
-          status: 400
-        }
-      );
-    }
-  }
-
   const event = {
     match_id:
       body.match_id,
@@ -651,7 +582,6 @@ async function createEvent(
   return Response.json(
     {
       success: true,
-
       event:
         Array.isArray(
           created
@@ -673,17 +603,27 @@ async function deleteEvent(
   request: Request,
   env: Env
 ): Promise<Response> {
-  const url =
-    new URL(
-      request.url
-    );
+  let body: DeleteEventBody;
 
-  const eventId =
-    url.searchParams.get(
-      "id"
+  try {
+    body =
+      (await request.json()) as DeleteEventBody;
+  } catch {
+    return Response.json(
+      {
+        error:
+          "Ungültiger JSON Body"
+      },
+      {
+        status: 400
+      }
     );
+  }
 
-  if (!eventId) {
+  if (
+    body.id == null ||
+    body.id === ""
+  ) {
     return Response.json(
       {
         error:
@@ -699,7 +639,9 @@ async function deleteEvent(
     await supabaseRequest(
       env,
       `goal_events?id=eq.${encodeURIComponent(
-        eventId
+        String(
+          body.id
+        )
       )}`,
       {
         method:
@@ -732,14 +674,32 @@ async function deleteEvent(
   const deleted =
     await response.json();
 
+  if (
+    !Array.isArray(
+      deleted
+    ) ||
+    deleted.length === 0
+  ) {
+    return Response.json(
+      {
+        error:
+          "Kein Event mit dieser ID gefunden"
+      },
+      {
+        status: 404
+      }
+    );
+  }
+
   return Response.json({
     success: true,
-    deleted
+    deleted:
+      deleted[0]
   });
 }
 
 /* =========================================================
-   /api/events
+   EVENTS ROUTE
    ========================================================= */
 
 async function handleEvents(
@@ -774,67 +734,49 @@ async function handleEvents(
     return envError;
   }
 
-  try {
-    if (
-      request.method ===
-      "GET"
-    ) {
-      return getEvents(
-        request,
-        env
-      );
-    }
-
-    if (
-      request.method ===
-      "POST"
-    ) {
-      return createEvent(
-        request,
-        env
-      );
-    }
-
-    if (
-      request.method ===
-      "DELETE"
-    ) {
-      return deleteEvent(
-        request,
-        env
-      );
-    }
-
-    return Response.json(
-      {
-        error:
-          "Method not allowed"
-      },
-      {
-        status: 405,
-
-        headers: {
-          Allow:
-            "GET, POST, DELETE"
-        }
-      }
-    );
-  } catch (error) {
-    return Response.json(
-      {
-        error:
-          "Fehler bei der Event-Verarbeitung",
-
-        details:
-          error instanceof Error
-            ? error.message
-            : String(error)
-      },
-      {
-        status: 500
-      }
+  if (
+    request.method ===
+    "GET"
+  ) {
+    return getEvents(
+      request,
+      env
     );
   }
+
+  if (
+    request.method ===
+    "POST"
+  ) {
+    return createEvent(
+      request,
+      env
+    );
+  }
+
+  if (
+    request.method ===
+    "DELETE"
+  ) {
+    return deleteEvent(
+      request,
+      env
+    );
+  }
+
+  return Response.json(
+    {
+      error:
+        "Method not allowed"
+    },
+    {
+      status: 405,
+      headers: {
+        Allow:
+          "GET, POST, DELETE"
+      }
+    }
+  );
 }
 
 /* =========================================================
