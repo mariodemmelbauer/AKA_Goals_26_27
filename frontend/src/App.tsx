@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import * as microsoftTeams from "@microsoft/teams-js";
 import "./App.css";
 
+const CLIENT_ID = "195954d1-452c-40de-8108-e6baf8a12042";
+const TENANT_ID = "1fcb46af-c475-4867-8c22-1ada8dd7cfdf";
+
 function App() {
   const [status, setStatus] = useState("Teams wird initialisiert …");
   const [userName, setUserName] = useState("");
+  const [tokenStatus, setTokenStatus] = useState("");
 
   useEffect(() => {
     const initTeams = async () => {
@@ -20,6 +24,18 @@ function App() {
         );
 
         setStatus("Microsoft Teams erkannt");
+
+        try {
+          const token = await microsoftTeams.authentication.getAuthToken();
+
+          if (token) {
+            setTokenStatus("Teams SSO Token erfolgreich empfangen");
+            console.log("Teams SSO Token:", token);
+          }
+        } catch (authError) {
+          console.error("SSO Fehler:", authError);
+          setTokenStatus("Teams erkannt, SSO Token konnte aber nicht geladen werden");
+        }
       } catch {
         setStatus("AKA Goals läuft aktuell außerhalb von Microsoft Teams");
       }
@@ -47,6 +63,10 @@ function App() {
         )}
 
         <p className="status">{status}</p>
+
+        {tokenStatus && (
+          <p className="status">{tokenStatus}</p>
+        )}
 
         <div className="cards">
           <div className="card">
