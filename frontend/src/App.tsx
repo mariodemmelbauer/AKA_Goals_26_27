@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState,
   type MouseEvent
 } from "react";
@@ -23,6 +24,10 @@ type TeamName =
 type EventType =
   | "Tor"
   | "Gegentor";
+
+type ViewMode =
+  | "matches"
+  | "analysis";
 
 type ApiUser = {
   name?: string | null;
@@ -69,17 +74,11 @@ type GoalEvent = {
   phase?: string | null;
   creation_type?: string | null;
 
-  start_x?: number | null;
-  start_y?: number | null;
-
   assist_x?: number | null;
   assist_y?: number | null;
 
   finish_x?: number | null;
   finish_y?: number | null;
-
-  end_x?: number | null;
-  end_y?: number | null;
 
   [key: string]: unknown;
 };
@@ -138,14 +137,6 @@ const CREATION_TYPES = [
 
 /* =====================================================
    KOORDINATEN
-
-   Datenbank:
-   x = Spielfeldlänge
-   y = Spielfeldbreite
-
-   Anzeige:
-   horizontal = DB-y
-   vertikal   = 100 - DB-x
    ===================================================== */
 
 function databaseToScreen(
@@ -176,58 +167,54 @@ function screenToDatabase(
   };
 }
 
-/* =====================================================
-   EVENT-KOORDINATEN
-   ===================================================== */
-
-function getAssistDatabasePoint(
+function getAssistPoint(
   event: GoalEvent
 ): DatabasePoint | null {
   if (
-    event.assist_x != null &&
-    event.assist_y != null
+    event.assist_x == null ||
+    event.assist_y == null
   ) {
-    return {
-      x:
-        Number(
-          event.assist_x
-        ),
-
-      y:
-        Number(
-          event.assist_y
-        )
-    };
+    return null;
   }
 
-  return null;
+  return {
+    x:
+      Number(
+        event.assist_x
+      ),
+
+    y:
+      Number(
+        event.assist_y
+      )
+  };
 }
 
-function getFinishDatabasePoint(
+function getFinishPoint(
   event: GoalEvent
 ): DatabasePoint | null {
   if (
-    event.finish_x != null &&
-    event.finish_y != null
+    event.finish_x == null ||
+    event.finish_y == null
   ) {
-    return {
-      x:
-        Number(
-          event.finish_x
-        ),
-
-      y:
-        Number(
-          event.finish_y
-        )
-    };
+    return null;
   }
 
-  return null;
+  return {
+    x:
+      Number(
+        event.finish_x
+      ),
+
+    y:
+      Number(
+        event.finish_y
+      )
+  };
 }
 
 /* =====================================================
-   ANALYSE-SPIELFELD
+   EVENT PITCH
    ===================================================== */
 
 function EventPitch({
@@ -248,10 +235,8 @@ function EventPitch({
 
         <div className="pitch-halfway-line" />
         <div className="pitch-center-circle" />
-
         <div className="penalty-area penalty-area-top" />
         <div className="penalty-area penalty-area-bottom" />
-
         <div className="goal-area goal-area-top" />
         <div className="goal-area goal-area-bottom" />
 
@@ -266,12 +251,12 @@ function EventPitch({
               index
             ) => {
               const assist =
-                getAssistDatabasePoint(
+                getAssistPoint(
                   event
                 );
 
               const finish =
-                getFinishDatabasePoint(
+                getFinishPoint(
                   event
                 );
 
@@ -282,13 +267,13 @@ function EventPitch({
                 return null;
               }
 
-              const assistScreen =
+              const a =
                 databaseToScreen(
                   assist.x,
                   assist.y
                 );
 
-              const finishScreen =
+              const f =
                 databaseToScreen(
                   finish.x,
                   finish.y
@@ -297,23 +282,10 @@ function EventPitch({
               return (
                 <line
                   key={`line-${event.id ?? index}`}
-
-                  x1={
-                    assistScreen.x
-                  }
-
-                  y1={
-                    assistScreen.y
-                  }
-
-                  x2={
-                    finishScreen.x
-                  }
-
-                  y2={
-                    finishScreen.y
-                  }
-
+                  x1={a.x}
+                  y1={a.y}
+                  x2={f.x}
+                  y2={f.y}
                   vectorEffect="non-scaling-stroke"
                 />
               );
@@ -327,15 +299,17 @@ function EventPitch({
             index
           ) => {
             const assist =
-              getAssistDatabasePoint(
+              getAssistPoint(
                 event
               );
 
-            if (!assist) {
+            if (
+              !assist
+            ) {
               return null;
             }
 
-            const point =
+            const p =
               databaseToScreen(
                 assist.x,
                 assist.y
@@ -344,15 +318,12 @@ function EventPitch({
             return (
               <div
                 key={`assist-${event.id ?? index}`}
-
                 className="analysis-start-point"
-
                 style={{
                   left:
-                    `${point.x}%`,
-
+                    `${p.x}%`,
                   top:
-                    `${point.y}%`
+                    `${p.y}%`
                 }}
               />
             );
@@ -365,15 +336,17 @@ function EventPitch({
             index
           ) => {
             const finish =
-              getFinishDatabasePoint(
+              getFinishPoint(
                 event
               );
 
-            if (!finish) {
+            if (
+              !finish
+            ) {
               return null;
             }
 
-            const point =
+            const p =
               databaseToScreen(
                 finish.x,
                 finish.y
@@ -382,15 +355,12 @@ function EventPitch({
             return (
               <div
                 key={`finish-${event.id ?? index}`}
-
                 className="analysis-end-point"
-
                 style={{
                   left:
-                    `${point.x}%`,
-
+                    `${p.x}%`,
                   top:
-                    `${point.y}%`
+                    `${p.y}%`
                 }}
               >
                 {event.minute ?? ""}
@@ -445,6 +415,14 @@ function App() {
     );
 
   const [
+    viewMode,
+    setViewMode
+  ] =
+    useState<ViewMode>(
+      "matches"
+    );
+
+  const [
     matches,
     setMatches
   ] =
@@ -479,6 +457,20 @@ function App() {
     useState<GoalEvent[]>(
       []
     );
+
+  const [
+    teamEvents,
+    setTeamEvents
+  ] =
+    useState<GoalEvent[]>(
+      []
+    );
+
+  const [
+    loadingTeamEvents,
+    setLoadingTeamEvents
+  ] =
+    useState(false);
 
   const [
     showEventForm,
@@ -525,22 +517,6 @@ function App() {
     useState("");
 
   const [
-    savingEvent,
-    setSavingEvent
-  ] =
-    useState(false);
-
-  const [
-    saveStatus,
-    setSaveStatus
-  ] =
-    useState("");
-
-  /*
-   * Im Formular speichern wir zunächst
-   * Bildschirmkoordinaten.
-   */
-  const [
     assistScreenPoint,
     setAssistScreenPoint
   ] =
@@ -557,6 +533,18 @@ function App() {
     );
 
   const [
+    savingEvent,
+    setSavingEvent
+  ] =
+    useState(false);
+
+  const [
+    saveStatus,
+    setSaveStatus
+  ] =
+    useState("");
+
+  const [
     eventToDelete,
     setEventToDelete
   ] =
@@ -570,12 +558,6 @@ function App() {
   ] =
     useState(false);
 
-  const [
-    deleteStatus,
-    setDeleteStatus
-  ] =
-    useState("");
-
   /* =====================================================
      TOKEN
      ===================================================== */
@@ -585,7 +567,9 @@ function App() {
       const token =
         await microsoftTeams.authentication.getAuthToken();
 
-      if (!token) {
+      if (
+        !token
+      ) {
         throw new Error(
           "Kein Teams SSO Token empfangen"
         );
@@ -595,7 +579,7 @@ function App() {
     };
 
   /* =====================================================
-     TEAMS INIT
+     INIT
      ===================================================== */
 
   useEffect(() => {
@@ -641,7 +625,9 @@ function App() {
           const data =
             (await response.json()) as MeResponse;
 
-          if (!response.ok) {
+          if (
+            !response.ok
+          ) {
             setTokenStatus(
               data.error ??
                 "SSO Validierung fehlgeschlagen"
@@ -663,8 +649,12 @@ function App() {
           setTeamsReady(
             true
           );
-        } catch (error) {
-          console.error(error);
+        } catch (
+          error
+        ) {
+          console.error(
+            error
+          );
 
           setStatus(
             "AKA Goals läuft außerhalb von Microsoft Teams"
@@ -713,7 +703,9 @@ function App() {
         const data =
           (await response.json()) as MatchesResponse;
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           setMatchesStatus(
             data.error ??
               "Spiele konnten nicht geladen werden"
@@ -745,8 +737,66 @@ function App() {
       }
     };
 
+  /* =====================================================
+     TEAM EVENTS
+     ===================================================== */
+
+  const loadTeamEvents =
+    async (
+      team: TeamName
+    ) => {
+      setLoadingTeamEvents(
+        true
+      );
+
+      try {
+        const token =
+          await getTeamsToken();
+
+        const response =
+          await fetch(
+            `/api/team-events?team=${encodeURIComponent(
+              team
+            )}`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
+            }
+          );
+
+        const data =
+          (await response.json()) as EventsResponse;
+
+        if (
+          !response.ok
+        ) {
+          console.error(
+            data
+          );
+
+          return;
+        }
+
+        setTeamEvents(
+          Array.isArray(
+            data.events
+          )
+            ? data.events
+            : []
+        );
+      } finally {
+        setLoadingTeamEvents(
+          false
+        );
+      }
+    };
+
   useEffect(() => {
-    if (!teamsReady) {
+    if (
+      !teamsReady
+    ) {
       return;
     }
 
@@ -756,7 +806,7 @@ function App() {
   }, [teamsReady]);
 
   /* =====================================================
-     EVENTS
+     EVENTS EINZELSPIEL
      ===================================================== */
 
   const loadEvents =
@@ -773,37 +823,30 @@ function App() {
         match
       );
 
-      try {
-        const token =
-          await getTeamsToken();
+      const token =
+        await getTeamsToken();
 
-        const response =
-          await fetch(
-            `/api/events?match_id=${encodeURIComponent(
-              String(
-                match.id
-              )
-            )}`,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${token}`
-              }
+      const response =
+        await fetch(
+          `/api/events?match_id=${encodeURIComponent(
+            String(
+              match.id
+            )
+          )}`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`
             }
-          );
+          }
+        );
 
-        const data =
-          (await response.json()) as EventsResponse;
+      const data =
+        (await response.json()) as EventsResponse;
 
-        if (!response.ok) {
-          console.error(
-            "Events:",
-            data
-          );
-
-          return;
-        }
-
+      if (
+        response.ok
+      ) {
         setEvents(
           Array.isArray(
             data.events
@@ -811,89 +854,49 @@ function App() {
             ? data.events
             : []
         );
-      } catch (error) {
-        console.error(
-          "Events:",
-          error
-        );
       }
     };
 
   /* =====================================================
-     DELETE
+     VIEW
      ===================================================== */
 
-  const executeDeleteEvent =
-    async () => {
-      if (
-        eventToDelete?.id == null ||
-        !selectedMatch
-      ) {
-        return;
-      }
-
-      setDeletingEvent(
-        true
+  const openAnalysis =
+    () => {
+      setViewMode(
+        "analysis"
       );
 
-      setDeleteStatus(
-        "Ereignis wird gelöscht …"
+      setSelectedMatch(
+        null
       );
 
-      try {
-        const token =
-          await getTeamsToken();
+      setShowEventForm(
+        false
+      );
 
-        const response =
-          await fetch(
-            `/api/events?id=${encodeURIComponent(
-              String(
-                eventToDelete.id
-              )
-            )}`,
-            {
-              method:
-                "DELETE",
+      void loadTeamEvents(
+        selectedTeam
+      );
+    };
 
-              headers: {
-                Authorization:
-                  `Bearer ${token}`
-              }
-            }
-          );
+  const openMatches =
+    () => {
+      setViewMode(
+        "matches"
+      );
 
-        const data =
-          (await response.json()) as EventsResponse;
+      setSelectedMatch(
+        null
+      );
 
-        if (!response.ok) {
-          setDeleteStatus(
-            data.error ??
-              "Event konnte nicht gelöscht werden"
-          );
-
-          return;
-        }
-
-        setEventToDelete(
-          null
-        );
-
-        setDeleteStatus(
-          ""
-        );
-
-        await loadEvents(
-          selectedMatch
-        );
-      } finally {
-        setDeletingEvent(
-          false
-        );
-      }
+      setShowEventForm(
+        false
+      );
     };
 
   /* =====================================================
-     FORM
+     EVENT FORM
      ===================================================== */
 
   const openEventForm =
@@ -909,24 +912,18 @@ function App() {
       setAssister("");
       setPhase("");
       setCreationType("");
-      setSaveStatus("");
-
       setAssistScreenPoint(
         null
       );
-
       setFinishScreenPoint(
         null
       );
+      setSaveStatus("");
 
       setShowEventForm(
         true
       );
     };
-
-  /* =====================================================
-     PITCH CLICK
-     ===================================================== */
 
   const handlePitchClick =
     (
@@ -935,7 +932,7 @@ function App() {
       const rect =
         event.currentTarget.getBoundingClientRect();
 
-      const screenPoint:
+      const point:
         ScreenPoint =
         {
           x:
@@ -969,7 +966,7 @@ function App() {
         !assistScreenPoint
       ) {
         setAssistScreenPoint(
-          screenPoint
+          point
         );
 
         return;
@@ -979,24 +976,20 @@ function App() {
         !finishScreenPoint
       ) {
         setFinishScreenPoint(
-          screenPoint
+          point
         );
 
         return;
       }
 
       setAssistScreenPoint(
-        screenPoint
+        point
       );
 
       setFinishScreenPoint(
         null
       );
     };
-
-  /* =====================================================
-     SAVE
-     ===================================================== */
 
   const saveEvent =
     async () => {
@@ -1012,11 +1005,6 @@ function App() {
 
         return;
       }
-
-      /*
-       * Bildschirm → altes AKA-Goals-
-       * Koordinatensystem.
-       */
 
       const assistDatabase =
         screenToDatabase(
@@ -1104,12 +1092,12 @@ function App() {
         const data =
           (await response.json()) as EventsResponse;
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           setSaveStatus(
-            data.details
-              ? `${data.error} – ${data.details}`
-              : data.error ??
-                  "Speichern fehlgeschlagen"
+            data.error ??
+              "Speichern fehlgeschlagen"
           );
 
           return;
@@ -1122,24 +1110,330 @@ function App() {
         setShowEventForm(
           false
         );
-
-        setAssistScreenPoint(
-          null
-        );
-
-        setFinishScreenPoint(
-          null
-        );
-
-        setSaveStatus(
-          ""
-        );
       } finally {
         setSavingEvent(
           false
         );
       }
     };
+
+  /* =====================================================
+     DELETE
+     ===================================================== */
+
+  const executeDeleteEvent =
+    async () => {
+      if (
+        eventToDelete?.id == null ||
+        !selectedMatch
+      ) {
+        return;
+      }
+
+      setDeletingEvent(
+        true
+      );
+
+      try {
+        const token =
+          await getTeamsToken();
+
+        const response =
+          await fetch(
+            `/api/events?id=${encodeURIComponent(
+              String(
+                eventToDelete.id
+              )
+            )}`,
+            {
+              method:
+                "DELETE",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
+            }
+          );
+
+        if (
+          response.ok
+        ) {
+          setEventToDelete(
+            null
+          );
+
+          await loadEvents(
+            selectedMatch
+          );
+        }
+      } finally {
+        setDeletingEvent(
+          false
+        );
+      }
+    };
+
+  /* =====================================================
+     ANALYSIS DATA
+     ===================================================== */
+
+  const teamGoals =
+    useMemo(
+      () =>
+        teamEvents.filter(
+          event =>
+            event.event_type ===
+            "Tor"
+        ),
+      [
+        teamEvents
+      ]
+    );
+
+  const teamConceded =
+    useMemo(
+      () =>
+        teamEvents.filter(
+          event =>
+            event.event_type ===
+            "Gegentor"
+        ),
+      [
+        teamEvents
+      ]
+    );
+
+  const phaseStats =
+    useMemo(
+      () => {
+        const map =
+          new Map<
+            string,
+            number
+          >();
+
+        teamEvents.forEach(
+          event => {
+            const key =
+              event.phase ||
+              "Nicht angegeben";
+
+            map.set(
+              key,
+              (
+                map.get(
+                  key
+                ) ||
+                0
+              ) +
+                1
+            );
+          }
+        );
+
+        return Array.from(
+          map.entries()
+        ).sort(
+          (
+            a,
+            b
+          ) =>
+            b[1] -
+            a[1]
+        );
+      },
+      [
+        teamEvents
+      ]
+    );
+
+  const creationStats =
+    useMemo(
+      () => {
+        const map =
+          new Map<
+            string,
+            number
+          >();
+
+        teamEvents.forEach(
+          event => {
+            const key =
+              event.creation_type ||
+              "Nicht angegeben";
+
+            map.set(
+              key,
+              (
+                map.get(
+                  key
+                ) ||
+                0
+              ) +
+                1
+            );
+          }
+        );
+
+        return Array.from(
+          map.entries()
+        ).sort(
+          (
+            a,
+            b
+          ) =>
+            b[1] -
+            a[1]
+        );
+      },
+      [
+        teamEvents
+      ]
+    );
+
+  const minuteBuckets =
+    useMemo(
+      () => {
+        const buckets =
+          selectedTeam === "U15"
+            ? [
+                {
+                  label:
+                    "0–15",
+                  min:
+                    0,
+                  max:
+                    15
+                },
+                {
+                  label:
+                    "16–30",
+                  min:
+                    16,
+                  max:
+                    30
+                },
+                {
+                  label:
+                    "31–40",
+                  min:
+                    31,
+                  max:
+                    40
+                },
+                {
+                  label:
+                    "41–55",
+                  min:
+                    41,
+                  max:
+                    55
+                },
+                {
+                  label:
+                    "56–70",
+                  min:
+                    56,
+                  max:
+                    70
+                },
+                {
+                  label:
+                    "71–85",
+                  min:
+                    71,
+                  max:
+                    85
+                }
+              ]
+            : [
+                {
+                  label:
+                    "0–15",
+                  min:
+                    0,
+                  max:
+                    15
+                },
+                {
+                  label:
+                    "16–30",
+                  min:
+                    16,
+                  max:
+                    30
+                },
+                {
+                  label:
+                    "31–45",
+                  min:
+                    31,
+                  max:
+                    45
+                },
+                {
+                  label:
+                    "46–60",
+                  min:
+                    46,
+                  max:
+                    60
+                },
+                {
+                  label:
+                    "61–75",
+                  min:
+                    61,
+                  max:
+                    75
+                },
+                {
+                  label:
+                    "76–95",
+                  min:
+                    76,
+                  max:
+                    95
+                }
+              ];
+
+        return buckets.map(
+          bucket => {
+            const goals =
+              teamGoals.filter(
+                event =>
+                  event.minute != null &&
+                  event.minute >=
+                    bucket.min &&
+                  event.minute <=
+                    bucket.max
+              ).length;
+
+            const conceded =
+              teamConceded.filter(
+                event =>
+                  event.minute != null &&
+                  event.minute >=
+                    bucket.min &&
+                  event.minute <=
+                    bucket.max
+              ).length;
+
+            return {
+              ...bucket,
+              goals,
+              conceded
+            };
+          }
+        );
+      },
+      [
+        selectedTeam,
+        teamGoals,
+        teamConceded
+      ]
+    );
 
   /* =====================================================
      HELPERS
@@ -1166,76 +1460,6 @@ function App() {
       event =>
         event.event_type ===
         "Gegentor"
-    );
-
-  /* =====================================================
-     EVENT LIST
-     ===================================================== */
-
-  const renderEvent =
-    (
-      event: GoalEvent
-    ) => (
-      <div
-        key={
-          String(
-            event.id
-          )
-        }
-        className="event-entry"
-      >
-
-        <strong>
-          {event.minute != null
-            ? `${event.minute}. Minute`
-            : "Minute unbekannt"}
-        </strong>
-
-        {event.scorer && (
-          <p>
-            Torschütze:{" "}
-            {event.scorer}
-          </p>
-        )}
-
-        {event.assister && (
-          <p>
-            Assist:{" "}
-            {event.assister}
-          </p>
-        )}
-
-        {event.phase && (
-          <p>
-            Phase:{" "}
-            {event.phase}
-          </p>
-        )}
-
-        {event.creation_type && (
-          <p>
-            Entstehung:{" "}
-            {event.creation_type}
-          </p>
-        )}
-
-        <button
-          className="delete-event-button"
-
-          onClick={() => {
-            setEventToDelete(
-              event
-            );
-
-            setDeleteStatus(
-              ""
-            );
-          }}
-        >
-          Löschen
-        </button>
-
-      </div>
     );
 
   /* =====================================================
@@ -1278,8 +1502,6 @@ function App() {
           {tokenStatus}
         </p>
 
-        {/* TEAMS */}
-
         <div className="cards">
 
           {TEAMS.map(
@@ -1290,7 +1512,8 @@ function App() {
                 }
 
                 className={`card team-card ${
-                  selectedTeam === team
+                  selectedTeam ===
+                  team
                     ? "active-team"
                     : ""
                 }`}
@@ -1304,14 +1527,8 @@ function App() {
                     null
                   );
 
-                  setEvents([]);
-
-                  setShowEventForm(
-                    false
-                  );
-
-                  setEventToDelete(
-                    null
+                  setViewMode(
+                    "matches"
                   );
 
                   void loadMatches(
@@ -1332,25 +1549,206 @@ function App() {
 
         </div>
 
-        {selectedMatch ? (
-          <>
+        <div className="event-actions">
+
+          <button
+            onClick={
+              openMatches
+            }
+          >
+            Spiele
+          </button>
+
+          <button
+            onClick={
+              openAnalysis
+            }
+          >
+            Team-Auswertung
+          </button>
+
+        </div>
+
+        {viewMode ===
+          "analysis" ? (
+
+          <section>
+
+            <h2>
+              {selectedTeam} – Team-Auswertung
+            </h2>
+
+            {loadingTeamEvents ? (
+              <p>
+                Auswertung wird geladen …
+              </p>
+            ) : (
+              <>
+
+                <div className="cards">
+
+                  <div className="card">
+                    <h3>
+                      Tore
+                    </h3>
+
+                    <strong>
+                      {teamGoals.length}
+                    </strong>
+                  </div>
+
+                  <div className="card">
+                    <h3>
+                      Gegentore
+                    </h3>
+
+                    <strong>
+                      {teamConceded.length}
+                    </strong>
+                  </div>
+
+                  <div className="card">
+                    <h3>
+                      Ereignisse
+                    </h3>
+
+                    <strong>
+                      {teamEvents.length}
+                    </strong>
+                  </div>
+
+                </div>
+
+                <div className="analysis-grid">
+
+                  <EventPitch
+                    events={
+                      teamGoals
+                    }
+                    title={`Alle Tore (${teamGoals.length})`}
+                  />
+
+                  <EventPitch
+                    events={
+                      teamConceded
+                    }
+                    title={`Alle Gegentore (${teamConceded.length})`}
+                  />
+
+                </div>
+
+                <div className="events-grid">
+
+                  <div className="card">
+
+                    <h2>
+                      Spielphasen
+                    </h2>
+
+                    {phaseStats.map(
+                      (
+                        [
+                          name,
+                          count
+                        ]
+                      ) => (
+                        <p
+                          key={
+                            name
+                          }
+                        >
+                          <strong>
+                            {name}:
+                          </strong>{" "}
+                          {count}
+                        </p>
+                      )
+                    )}
+
+                  </div>
+
+                  <div className="card">
+
+                    <h2>
+                      Entstehung
+                    </h2>
+
+                    {creationStats.map(
+                      (
+                        [
+                          name,
+                          count
+                        ]
+                      ) => (
+                        <p
+                          key={
+                            name
+                          }
+                        >
+                          <strong>
+                            {name}:
+                          </strong>{" "}
+                          {count}
+                        </p>
+                      )
+                    )}
+
+                  </div>
+
+                </div>
+
+                <div className="card">
+
+                  <h2>
+                    Tore nach Spielminute
+                  </h2>
+
+                  <div className="minute-table">
+
+                    {minuteBuckets.map(
+                      bucket => (
+                        <div
+                          key={
+                            bucket.label
+                          }
+                          className="minute-row"
+                        >
+                          <strong>
+                            {bucket.label}
+                          </strong>
+
+                          <span>
+                            Tore:{" "}
+                            {bucket.goals}
+                          </span>
+
+                          <span>
+                            Gegentore:{" "}
+                            {bucket.conceded}
+                          </span>
+                        </div>
+                      )
+                    )}
+
+                  </div>
+
+                </div>
+
+              </>
+            )}
+
+          </section>
+
+        ) : selectedMatch ? (
+
+          <section>
 
             <button
-              onClick={() => {
+              onClick={() =>
                 setSelectedMatch(
                   null
-                );
-
-                setEvents([]);
-
-                setShowEventForm(
-                  false
-                );
-
-                setEventToDelete(
-                  null
-                );
-              }}
+                )
+              }
             >
               ← Zurück zu den Spielen
             </button>
@@ -1362,8 +1760,6 @@ function App() {
                 selectedMatch
               )}
             </h2>
-
-            {/* ACTIONS */}
 
             <div className="event-actions">
 
@@ -1389,24 +1785,13 @@ function App() {
 
             </div>
 
-            {/* DELETE */}
-
             {eventToDelete && (
 
               <div className="delete-confirm-box">
 
                 <strong>
-                  {eventToDelete.event_type ===
-                  "Gegentor"
-                    ? "Gegentor löschen?"
-                    : "Tor löschen?"}
+                  Ereignis löschen?
                 </strong>
-
-                <p>
-                  {eventToDelete.minute != null
-                    ? `${eventToDelete.minute}. Minute`
-                    : "Minute unbekannt"}
-                </p>
 
                 <div className="form-actions">
 
@@ -1414,43 +1799,28 @@ function App() {
                     onClick={() =>
                       void executeDeleteEvent()
                     }
-
                     disabled={
                       deletingEvent
                     }
                   >
-                    {deletingEvent
-                      ? "Wird gelöscht …"
-                      : "Ja, löschen"}
+                    Ja, löschen
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={() =>
                       setEventToDelete(
                         null
-                      );
-
-                      setDeleteStatus(
-                        ""
-                      );
-                    }}
+                      )
+                    }
                   >
                     Abbrechen
                   </button>
 
                 </div>
 
-                {deleteStatus && (
-                  <p className="status">
-                    {deleteStatus}
-                  </p>
-                )}
-
               </div>
 
             )}
-
-            {/* FORM */}
 
             {showEventForm && (
 
@@ -1464,14 +1834,10 @@ function App() {
 
                   <input
                     type="number"
-                    min="0"
-                    max="130"
                     placeholder="Minute"
-
                     value={
                       minute
                     }
-
                     onChange={
                       event =>
                         setMinute(
@@ -1480,15 +1846,14 @@ function App() {
                     }
                   />
 
-                  {eventType === "Tor" && (
+                  {eventType ===
+                    "Tor" && (
                     <>
                       <input
                         placeholder="Torschütze"
-
                         value={
                           scorer
                         }
-
                         onChange={
                           event =>
                             setScorer(
@@ -1499,11 +1864,9 @@ function App() {
 
                       <input
                         placeholder="Assist"
-
                         value={
                           assister
                         }
-
                         onChange={
                           event =>
                             setAssister(
@@ -1518,7 +1881,6 @@ function App() {
                     value={
                       phase
                     }
-
                     onChange={
                       event =>
                         setPhase(
@@ -1532,7 +1894,6 @@ function App() {
                           key={
                             item
                           }
-
                           value={
                             item
                           }
@@ -1548,7 +1909,6 @@ function App() {
                     value={
                       creationType
                     }
-
                     onChange={
                       event =>
                         setCreationType(
@@ -1562,7 +1922,6 @@ function App() {
                           key={
                             item
                           }
-
                           value={
                             item
                           }
@@ -1574,41 +1933,26 @@ function App() {
                     )}
                   </select>
 
-                  <p className="pitch-help">
-                    {!assistScreenPoint
-                      ? "1. Klick: Assist / Entstehung"
-                      : !finishScreenPoint
-                        ? "2. Klick: Abschluss"
-                        : "Beide Positionen gesetzt"}
-                  </p>
-
                   <div
                     className="football-pitch"
-
                     onClick={
                       handlePitchClick
                     }
                   >
+
                     <div className="pitch-halfway-line" />
-
                     <div className="pitch-center-circle" />
-
                     <div className="penalty-area penalty-area-top" />
-
                     <div className="penalty-area penalty-area-bottom" />
-
                     <div className="goal-area goal-area-top" />
-
                     <div className="goal-area goal-area-bottom" />
 
                     {assistScreenPoint && (
                       <div
                         className="pitch-point assist-point"
-
                         style={{
                           left:
                             `${assistScreenPoint.x}%`,
-
                           top:
                             `${assistScreenPoint.y}%`
                         }}
@@ -1620,11 +1964,9 @@ function App() {
                     {finishScreenPoint && (
                       <div
                         className="pitch-point finish-point"
-
                         style={{
                           left:
                             `${finishScreenPoint.x}%`,
-
                           top:
                             `${finishScreenPoint.y}%`
                         }}
@@ -1633,98 +1975,30 @@ function App() {
                       </div>
                     )}
 
-                    {assistScreenPoint &&
-                      finishScreenPoint && (
-
-                      <svg
-                        className="pitch-line-layer"
-
-                        viewBox="0 0 100 100"
-
-                        preserveAspectRatio="none"
-                      >
-                        <line
-                          x1={
-                            assistScreenPoint.x
-                          }
-
-                          y1={
-                            assistScreenPoint.y
-                          }
-
-                          x2={
-                            finishScreenPoint.x
-                          }
-
-                          y2={
-                            finishScreenPoint.y
-                          }
-
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      </svg>
-
-                    )}
-
                   </div>
-
-                  <button
-                    type="button"
-
-                    onClick={() => {
-                      setAssistScreenPoint(
-                        null
-                      );
-
-                      setFinishScreenPoint(
-                        null
-                      );
-                    }}
-                  >
-                    Positionen löschen
-                  </button>
 
                 </div>
 
                 {saveStatus && (
-                  <p className="status">
+                  <p>
                     {saveStatus}
                   </p>
                 )}
 
-                <div className="form-actions">
-
-                  <button
-                    onClick={() =>
-                      void saveEvent()
-                    }
-
-                    disabled={
-                      savingEvent
-                    }
-                  >
-                    {savingEvent
-                      ? "Speichern …"
-                      : "Speichern"}
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setShowEventForm(
-                        false
-                      )
-                    }
-                  >
-                    Abbrechen
-                  </button>
-
-                </div>
+                <button
+                  onClick={() =>
+                    void saveEvent()
+                  }
+                  disabled={
+                    savingEvent
+                  }
+                >
+                  Speichern
+                </button>
 
               </div>
 
             )}
-
-            {/* ANALYSE */}
 
             <div className="analysis-grid">
 
@@ -1732,7 +2006,6 @@ function App() {
                 events={
                   goals
                 }
-
                 title={`Tore (${goals.length})`}
               />
 
@@ -1740,72 +2013,26 @@ function App() {
                 events={
                   concededGoals
                 }
-
                 title={`Gegentore (${concededGoals.length})`}
               />
 
             </div>
 
-            {/* LISTEN */}
+          </section>
 
-            <div className="events-grid">
-
-              <div className="card">
-
-                <h2>
-                  Tore ({goals.length})
-                </h2>
-
-                {goals.length === 0
-                  ? (
-                    <p>
-                      Keine Tore erfasst.
-                    </p>
-                  )
-                  : goals.map(
-                      renderEvent
-                    )}
-
-              </div>
-
-              <div className="card">
-
-                <h2>
-                  Gegentore ({concededGoals.length})
-                </h2>
-
-                {concededGoals.length === 0
-                  ? (
-                    <p>
-                      Keine Gegentore erfasst.
-                    </p>
-                  )
-                  : concededGoals.map(
-                      renderEvent
-                    )}
-
-              </div>
-
-            </div>
-
-          </>
         ) : (
 
-          <section className="matches-section">
+          <section>
 
             <h2>
               {selectedTeam} Spiele
             </h2>
 
-            <p className="status">
+            <p>
               {matchesStatus}
             </p>
 
-            {loadingMatches ? (
-              <p>
-                Daten werden geladen …
-              </p>
-            ) : (
+            {!loadingMatches &&
               matches.map(
                 (
                   match,
@@ -1816,9 +2043,7 @@ function App() {
                       match.id ??
                         index
                     )}
-
                     className="card match-card"
-
                     onClick={() =>
                       void loadEvents(
                         match
@@ -1830,28 +2055,9 @@ function App() {
                         match
                       )}
                     </h3>
-
-                    {typeof match.match_date ===
-                      "string" && (
-                      <p>
-                        {match.match_date}
-                      </p>
-                    )}
-
-                    {typeof match.competition ===
-                      "string" && (
-                      <p>
-                        {match.competition}
-                      </p>
-                    )}
-
-                    <p>
-                      Öffnen →
-                    </p>
                   </div>
                 )
-              )
-            )}
+              )}
 
           </section>
 

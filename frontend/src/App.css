@@ -437,3 +437,16 @@ button:disabled {
     0 2px 8px rgba(0, 0, 0, 0.08);
   text-align: left;
 }
+
+.minute-table {
+  display: grid;
+  gap: 8px;
+}
+
+.minute-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #ddd;
+}

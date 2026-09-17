@@ -20,17 +20,19 @@ const CLIENT_ID =
 const APP_ID_URI =
   "api://aka-goals-26-27.mario-demmelbauer.workers.dev/195954d1-452c-40de-8108-e6baf8a12042";
 
-const JWKS_V2 = createRemoteJWKSet(
-  new URL(
-    `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
-  )
-);
+const JWKS_V2 =
+  createRemoteJWKSet(
+    new URL(
+      `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
+    )
+  );
 
-const JWKS_V1 = createRemoteJWKSet(
-  new URL(
-    `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`
-  )
-);
+const JWKS_V1 =
+  createRemoteJWKSet(
+    new URL(
+      `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`
+    )
+  );
 
 /* =========================================================
    TEAMS TOKEN
@@ -58,9 +60,13 @@ async function validateTeamsToken(
     decodeJwt(token);
 
   const version =
-    String(unverified.ver ?? "");
+    String(
+      unverified.ver ?? ""
+    );
 
-  if (version === "2.0") {
+  if (
+    version === "2.0"
+  ) {
     const result =
       await jwtVerify(
         token,
@@ -68,6 +74,7 @@ async function validateTeamsToken(
         {
           issuer:
             `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
+
           audience:
             CLIENT_ID
         }
@@ -92,6 +99,7 @@ async function validateTeamsToken(
       {
         issuer:
           `https://sts.windows.net/${TENANT_ID}/`,
+
         audience: [
           CLIENT_ID,
           APP_ID_URI
@@ -118,7 +126,9 @@ async function validateTeamsToken(
 function checkSupabaseEnv(
   env: Env
 ): Response | null {
-  if (!env.SUPABASE_URL) {
+  if (
+    !env.SUPABASE_URL
+  ) {
     return Response.json(
       {
         error:
@@ -195,7 +205,8 @@ async function handleMe(
       );
 
     return Response.json({
-      authenticated: true,
+      authenticated:
+        true,
 
       user: {
         name:
@@ -217,7 +228,9 @@ async function handleMe(
           null
       }
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Teams token validation failed:",
       error
@@ -225,12 +238,49 @@ async function handleMe(
 
     return Response.json(
       {
-        authenticated: false,
+        authenticated:
+          false,
+
         error:
           "Invalid Teams SSO token"
       },
       {
-        status: 401
+        status:
+          401
+      }
+    );
+  }
+}
+
+/* =========================================================
+   AUTH HELPER
+   ========================================================= */
+
+async function requireAuth(
+  request: Request
+): Promise<Response | null> {
+  try {
+    await validateTeamsToken(
+      request
+    );
+
+    return null;
+  } catch (
+    error
+  ) {
+    console.error(
+      "Auth error:",
+      error
+    );
+
+    return Response.json(
+      {
+        error:
+          "Teams authentication failed"
+      },
+      {
+        status:
+          401
       }
     );
   }
@@ -244,102 +294,184 @@ async function handleMatches(
   request: Request,
   env: Env
 ): Promise<Response> {
-  try {
-    await validateTeamsToken(
+  const authError =
+    await requireAuth(
       request
     );
-  } catch (error) {
-    console.error(
-      "Matches auth error:",
-      error
-    );
 
-    return Response.json(
-      {
-        error:
-          "Teams authentication failed"
-      },
-      {
-        status: 401
-      }
-    );
+  if (
+    authError
+  ) {
+    return authError;
   }
 
   const envError =
-    checkSupabaseEnv(env);
+    checkSupabaseEnv(
+      env
+    );
 
-  if (envError) {
+  if (
+    envError
+  ) {
     return envError;
   }
 
-  try {
-    const url =
-      new URL(request.url);
+  const url =
+    new URL(
+      request.url
+    );
 
-    const team =
-      url.searchParams.get(
-        "team"
-      );
+  const team =
+    url.searchParams.get(
+      "team"
+    );
 
-    let query =
-      "matches?select=*";
+  let query =
+    "matches?select=*";
 
-    if (team) {
-      query +=
-        `&team=eq.${encodeURIComponent(
-          team
-        )}`;
-    }
+  if (
+    team
+  ) {
+    query +=
+      `&team=eq.${encodeURIComponent(
+        team
+      )}`;
+  }
 
-    const response =
-      await supabaseRequest(
-        env,
-        query
-      );
+  const response =
+    await supabaseRequest(
+      env,
+      query
+    );
 
-    if (!response.ok) {
-      const details =
-        await response.text();
+  if (
+    !response.ok
+  ) {
+    const details =
+      await response.text();
 
-      return Response.json(
-        {
-          error:
-            "Matches konnten nicht geladen werden",
-          details
-        },
-        {
-          status:
-            response.status
-        }
-      );
-    }
-
-    const matches =
-      await response.json();
-
-    return Response.json({
-      success: true,
-      matches
-    });
-  } catch (error) {
     return Response.json(
       {
         error:
-          "Fehler beim Laden der Matches",
-        details:
-          error instanceof Error
-            ? error.message
-            : String(error)
+          "Matches konnten nicht geladen werden",
+
+        details
       },
       {
-        status: 500
+        status:
+          response.status
       }
     );
   }
+
+  const matches =
+    await response.json();
+
+  return Response.json({
+    success:
+      true,
+
+    matches
+  });
 }
 
 /* =========================================================
-   EVENT TYPE
+   TEAM EVENTS
+   ========================================================= */
+
+async function handleTeamEvents(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const authError =
+    await requireAuth(
+      request
+    );
+
+  if (
+    authError
+  ) {
+    return authError;
+  }
+
+  const envError =
+    checkSupabaseEnv(
+      env
+    );
+
+  if (
+    envError
+  ) {
+    return envError;
+  }
+
+  const url =
+    new URL(
+      request.url
+    );
+
+  const team =
+    url.searchParams.get(
+      "team"
+    );
+
+  if (
+    !team
+  ) {
+    return Response.json(
+      {
+        error:
+          "team fehlt"
+      },
+      {
+        status:
+          400
+      }
+    );
+  }
+
+  const response =
+    await supabaseRequest(
+      env,
+
+      `goal_events?select=*&team=eq.${encodeURIComponent(
+        team
+      )}&order=minute.asc`
+    );
+
+  if (
+    !response.ok
+  ) {
+    const details =
+      await response.text();
+
+    return Response.json(
+      {
+        error:
+          "Team-Events konnten nicht geladen werden",
+
+        details
+      },
+      {
+        status:
+          response.status
+      }
+    );
+  }
+
+  const events =
+    await response.json();
+
+  return Response.json({
+    success:
+      true,
+
+    events
+  });
+}
+
+/* =========================================================
+   EVENTS
    ========================================================= */
 
 type CreateEventBody = {
@@ -361,10 +493,6 @@ type CreateEventBody = {
   finish_x?: number | null;
   finish_y?: number | null;
 
-  /*
-   * Nur für Rückwärtskompatibilität mit
-   * vorherigen Teams-Versionen.
-   */
   start_x?: number | null;
   start_y?: number | null;
 
@@ -372,30 +500,31 @@ type CreateEventBody = {
   end_y?: number | null;
 };
 
-/* =========================================================
-   GET EVENTS
-   ========================================================= */
-
 async function getEvents(
   request: Request,
   env: Env
 ): Promise<Response> {
   const url =
-    new URL(request.url);
+    new URL(
+      request.url
+    );
 
   const matchId =
     url.searchParams.get(
       "match_id"
     );
 
-  if (!matchId) {
+  if (
+    !matchId
+  ) {
     return Response.json(
       {
         error:
           "match_id fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -403,12 +532,15 @@ async function getEvents(
   const response =
     await supabaseRequest(
       env,
+
       `goal_events?select=*&match_id=eq.${encodeURIComponent(
         matchId
       )}&order=minute.asc`
     );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     const details =
       await response.text();
 
@@ -416,6 +548,7 @@ async function getEvents(
       {
         error:
           "Events konnten nicht geladen werden",
+
         details
       },
       {
@@ -429,20 +562,19 @@ async function getEvents(
     await response.json();
 
   return Response.json({
-    success: true,
+    success:
+      true,
+
     events
   });
 }
-
-/* =========================================================
-   CREATE EVENT
-   ========================================================= */
 
 async function createEvent(
   request: Request,
   env: Env
 ): Promise<Response> {
-  let body: CreateEventBody;
+  let body:
+    CreateEventBody;
 
   try {
     body =
@@ -454,7 +586,8 @@ async function createEvent(
           "Ungültiger JSON Body"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -469,7 +602,8 @@ async function createEvent(
           "match_id fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -484,14 +618,17 @@ async function createEvent(
           "team fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
 
   if (
-    body.event_type !== "Tor" &&
-    body.event_type !== "Gegentor"
+    body.event_type !==
+      "Tor" &&
+    body.event_type !==
+      "Gegentor"
   ) {
     return Response.json(
       {
@@ -499,22 +636,11 @@ async function createEvent(
           "event_type muss Tor oder Gegentor sein"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
-
-  /*
-   * Canonical AKA-Goals coordinates:
-   *
-   * x = Spielfeldlänge
-   *     0 eigenes Tor
-   *     100 gegnerisches Tor
-   *
-   * y = Spielfeldbreite
-   *     0 links
-   *     100 rechts
-   */
 
   const assistX =
     body.assist_x ??
@@ -584,7 +710,8 @@ async function createEvent(
       env,
       "goal_events",
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers: {
           Prefer:
@@ -598,7 +725,9 @@ async function createEvent(
       }
     );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     const details =
       await response.text();
 
@@ -606,6 +735,7 @@ async function createEvent(
       {
         error:
           "Event konnte nicht gespeichert werden",
+
         details
       },
       {
@@ -620,7 +750,8 @@ async function createEvent(
 
   return Response.json(
     {
-      success: true,
+      success:
+        true,
 
       event:
         Array.isArray(
@@ -630,35 +761,37 @@ async function createEvent(
           : created
     },
     {
-      status: 201
+      status:
+        201
     }
   );
 }
-
-/* =========================================================
-   DELETE EVENT
-   ========================================================= */
 
 async function deleteEvent(
   request: Request,
   env: Env
 ): Promise<Response> {
   const url =
-    new URL(request.url);
+    new URL(
+      request.url
+    );
 
   const eventId =
     url.searchParams.get(
       "id"
     );
 
-  if (!eventId) {
+  if (
+    !eventId
+  ) {
     return Response.json(
       {
         error:
           "Event-ID fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -666,11 +799,14 @@ async function deleteEvent(
   const response =
     await supabaseRequest(
       env,
+
       `goal_events?id=eq.${encodeURIComponent(
         eventId
       )}`,
+
       {
-        method: "DELETE",
+        method:
+          "DELETE",
 
         headers: {
           Prefer:
@@ -679,7 +815,9 @@ async function deleteEvent(
       }
     );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     const details =
       await response.text();
 
@@ -687,6 +825,7 @@ async function deleteEvent(
       {
         error:
           "Event konnte nicht gelöscht werden",
+
         details
       },
       {
@@ -697,50 +836,43 @@ async function deleteEvent(
   }
 
   return Response.json({
-    success: true,
+    success:
+      true,
+
     deletedId:
       eventId
   });
 }
 
-/* =========================================================
-   EVENTS ROUTE
-   ========================================================= */
-
 async function handleEvents(
   request: Request,
   env: Env
 ): Promise<Response> {
-  try {
-    await validateTeamsToken(
+  const authError =
+    await requireAuth(
       request
     );
-  } catch (error) {
-    console.error(
-      "Events auth error:",
-      error
-    );
 
-    return Response.json(
-      {
-        error:
-          "Teams authentication failed"
-      },
-      {
-        status: 401
-      }
-    );
+  if (
+    authError
+  ) {
+    return authError;
   }
 
   const envError =
-    checkSupabaseEnv(env);
+    checkSupabaseEnv(
+      env
+    );
 
-  if (envError) {
+  if (
+    envError
+  ) {
     return envError;
   }
 
   if (
-    request.method === "GET"
+    request.method ===
+    "GET"
   ) {
     return getEvents(
       request,
@@ -749,7 +881,8 @@ async function handleEvents(
   }
 
   if (
-    request.method === "POST"
+    request.method ===
+    "POST"
   ) {
     return createEvent(
       request,
@@ -758,7 +891,8 @@ async function handleEvents(
   }
 
   if (
-    request.method === "DELETE"
+    request.method ===
+    "DELETE"
   ) {
     return deleteEvent(
       request,
@@ -772,7 +906,8 @@ async function handleEvents(
         "Method not allowed"
     },
     {
-      status: 405,
+      status:
+        405,
 
       headers: {
         Allow:
@@ -792,10 +927,13 @@ export default {
     env: Env
   ): Promise<Response> {
     const url =
-      new URL(request.url);
+      new URL(
+        request.url
+      );
 
     if (
-      url.pathname === "/api/me"
+      url.pathname ===
+      "/api/me"
     ) {
       return handleMe(
         request
@@ -803,7 +941,8 @@ export default {
     }
 
     if (
-      url.pathname === "/api/matches"
+      url.pathname ===
+      "/api/matches"
     ) {
       return handleMatches(
         request,
@@ -812,7 +951,18 @@ export default {
     }
 
     if (
-      url.pathname === "/api/events"
+      url.pathname ===
+      "/api/team-events"
+    ) {
+      return handleTeamEvents(
+        request,
+        env
+      );
+    }
+
+    if (
+      url.pathname ===
+      "/api/events"
     ) {
       return handleEvents(
         request,
