@@ -20,17 +20,23 @@ const CLIENT_ID =
 const APP_ID_URI =
   "api://aka-goals-26-27.mario-demmelbauer.workers.dev/195954d1-452c-40de-8108-e6baf8a12042";
 
-const JWKS_V2 = createRemoteJWKSet(
-  new URL(
-    `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
-  )
-);
+const JWKS_V2 =
+  createRemoteJWKSet(
+    new URL(
+      `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
+    )
+  );
 
-const JWKS_V1 = createRemoteJWKSet(
-  new URL(
-    `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`
-  )
-);
+const JWKS_V1 =
+  createRemoteJWKSet(
+    new URL(
+      `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`
+    )
+  );
+
+/* =========================================================
+   TEAMS TOKEN
+   ========================================================= */
 
 async function validateTeamsToken(
   request: Request
@@ -54,9 +60,13 @@ async function validateTeamsToken(
     decodeJwt(token);
 
   const version =
-    String(unverified.ver ?? "");
+    String(
+      unverified.ver ?? ""
+    );
 
-  if (version === "2.0") {
+  if (
+    version === "2.0"
+  ) {
     const result =
       await jwtVerify(
         token,
@@ -64,6 +74,7 @@ async function validateTeamsToken(
         {
           issuer:
             `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
+
           audience:
             CLIENT_ID
         }
@@ -88,6 +99,7 @@ async function validateTeamsToken(
       {
         issuer:
           `https://sts.windows.net/${TENANT_ID}/`,
+
         audience: [
           CLIENT_ID,
           APP_ID_URI
@@ -107,10 +119,16 @@ async function validateTeamsToken(
   return result.payload;
 }
 
+/* =========================================================
+   SUPABASE
+   ========================================================= */
+
 function checkSupabaseEnv(
   env: Env
 ): Response | null {
-  if (!env.SUPABASE_URL) {
+  if (
+    !env.SUPABASE_URL
+  ) {
     return Response.json(
       {
         error:
@@ -187,7 +205,8 @@ async function handleMe(
       );
 
     return Response.json({
-      authenticated: true,
+      authenticated:
+        true,
 
       user: {
         name:
@@ -209,7 +228,9 @@ async function handleMe(
           null
       }
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Teams token validation failed:",
       error
@@ -217,12 +238,15 @@ async function handleMe(
 
     return Response.json(
       {
-        authenticated: false,
+        authenticated:
+          false,
+
         error:
           "Invalid Teams SSO token"
       },
       {
-        status: 401
+        status:
+          401
       }
     );
   }
@@ -240,7 +264,9 @@ async function handleMatches(
     await validateTeamsToken(
       request
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Matches auth error:",
       error
@@ -252,15 +278,20 @@ async function handleMatches(
           "Teams authentication failed"
       },
       {
-        status: 401
+        status:
+          401
       }
     );
   }
 
   const envError =
-    checkSupabaseEnv(env);
+    checkSupabaseEnv(
+      env
+    );
 
-  if (envError) {
+  if (
+    envError
+  ) {
     return envError;
   }
 
@@ -278,7 +309,9 @@ async function handleMatches(
     let query =
       "matches?select=*";
 
-    if (team) {
+    if (
+      team
+    ) {
       query +=
         `&team=eq.${encodeURIComponent(
           team
@@ -291,7 +324,9 @@ async function handleMatches(
         query
       );
 
-    if (!response.ok) {
+    if (
+      !response.ok
+    ) {
       const details =
         await response.text();
 
@@ -299,6 +334,7 @@ async function handleMatches(
         {
           error:
             "Matches konnten nicht geladen werden",
+
           details
         },
         {
@@ -312,41 +348,58 @@ async function handleMatches(
       await response.json();
 
     return Response.json({
-      success: true,
+      success:
+        true,
+
       matches
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     return Response.json(
       {
         error:
           "Fehler beim Laden der Matches",
+
         details:
           error instanceof Error
             ? error.message
-            : String(error)
+            : String(
+                error
+              )
       },
       {
-        status: 500
+        status:
+          500
       }
     );
   }
 }
 
 /* =========================================================
-   EVENT TYPES
+   EVENT TYPE
    ========================================================= */
 
 type CreateEventBody = {
   match_id?: number | string;
+
   team?: string;
+
   event_type?: string;
+
   minute?: number | null;
+
   scorer?: string | null;
+
   assister?: string | null;
+
   phase?: string | null;
+
   creation_type?: string | null;
+
   start_x?: number | null;
   start_y?: number | null;
+
   end_x?: number | null;
   end_y?: number | null;
 };
@@ -369,14 +422,17 @@ async function getEvents(
       "match_id"
     );
 
-  if (!matchId) {
+  if (
+    !matchId
+  ) {
     return Response.json(
       {
         error:
           "match_id fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -384,12 +440,15 @@ async function getEvents(
   const response =
     await supabaseRequest(
       env,
+
       `goal_events?select=*&match_id=eq.${encodeURIComponent(
         matchId
       )}&order=minute.asc`
     );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     const details =
       await response.text();
 
@@ -397,6 +456,7 @@ async function getEvents(
       {
         error:
           "Events konnten nicht geladen werden",
+
         details
       },
       {
@@ -410,7 +470,9 @@ async function getEvents(
     await response.json();
 
   return Response.json({
-    success: true,
+    success:
+      true,
+
     events
   });
 }
@@ -423,7 +485,8 @@ async function createEvent(
   request: Request,
   env: Env
 ): Promise<Response> {
-  let body: CreateEventBody;
+  let body:
+    CreateEventBody;
 
   try {
     body =
@@ -435,7 +498,8 @@ async function createEvent(
           "Ungültiger JSON Body"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -450,7 +514,8 @@ async function createEvent(
           "match_id fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -465,14 +530,17 @@ async function createEvent(
           "team fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
 
   if (
-    body.event_type !== "Tor" &&
-    body.event_type !== "Gegentor"
+    body.event_type !==
+      "Tor" &&
+    body.event_type !==
+      "Gegentor"
   ) {
     return Response.json(
       {
@@ -480,10 +548,26 @@ async function createEvent(
           "event_type muss Tor oder Gegentor sein"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
+
+  /*
+   * WICHTIG:
+   * Wir schreiben die Positionen
+   * sowohl in die neuen als auch
+   * in die bisherigen Spalten.
+   *
+   * Teams:
+   * start_x/start_y
+   * end_x/end_y
+   *
+   * bestehendes Streamlit:
+   * assist_x/assist_y
+   * finish_x/finish_y
+   */
 
   const event = {
     match_id:
@@ -496,7 +580,8 @@ async function createEvent(
       body.event_type,
 
     minute:
-      body.minute ?? null,
+      body.minute ??
+      null,
 
     scorer:
       body.scorer?.trim() ||
@@ -515,16 +600,36 @@ async function createEvent(
       null,
 
     start_x:
-      body.start_x ?? null,
+      body.start_x ??
+      null,
 
     start_y:
-      body.start_y ?? null,
+      body.start_y ??
+      null,
 
     end_x:
-      body.end_x ?? null,
+      body.end_x ??
+      null,
 
     end_y:
-      body.end_y ?? null
+      body.end_y ??
+      null,
+
+    assist_x:
+      body.start_x ??
+      null,
+
+    assist_y:
+      body.start_y ??
+      null,
+
+    finish_x:
+      body.end_x ??
+      null,
+
+    finish_y:
+      body.end_y ??
+      null
   };
 
   const response =
@@ -547,7 +652,9 @@ async function createEvent(
       }
     );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     const details =
       await response.text();
 
@@ -555,6 +662,7 @@ async function createEvent(
       {
         error:
           "Event konnte nicht gespeichert werden",
+
         details
       },
       {
@@ -569,7 +677,9 @@ async function createEvent(
 
   return Response.json(
     {
-      success: true,
+      success:
+        true,
+
       event:
         Array.isArray(
           created
@@ -578,7 +688,8 @@ async function createEvent(
           : created
     },
     {
-      status: 201
+      status:
+        201
     }
   );
 }
@@ -601,29 +712,29 @@ async function deleteEvent(
       "id"
     );
 
-  if (!eventId) {
+  if (
+    !eventId
+  ) {
     return Response.json(
       {
         error:
           "Event-ID fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
 
-  console.log(
-    "Delete goal_event ID:",
-    eventId
-  );
-
   const response =
     await supabaseRequest(
       env,
+
       `goal_events?id=eq.${encodeURIComponent(
         eventId
       )}`,
+
       {
         method:
           "DELETE",
@@ -635,19 +746,17 @@ async function deleteEvent(
       }
     );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     const details =
       await response.text();
-
-    console.error(
-      "Supabase DELETE error:",
-      details
-    );
 
     return Response.json(
       {
         error:
           "Event konnte nicht gelöscht werden",
+
         details
       },
       {
@@ -658,7 +767,9 @@ async function deleteEvent(
   }
 
   return Response.json({
-    success: true,
+    success:
+      true,
+
     deletedId:
       eventId
   });
@@ -676,7 +787,9 @@ async function handleEvents(
     await validateTeamsToken(
       request
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Events auth error:",
       error
@@ -688,15 +801,20 @@ async function handleEvents(
           "Teams authentication failed"
       },
       {
-        status: 401
+        status:
+          401
       }
     );
   }
 
   const envError =
-    checkSupabaseEnv(env);
+    checkSupabaseEnv(
+      env
+    );
 
-  if (envError) {
+  if (
+    envError
+  ) {
     return envError;
   }
 
@@ -736,7 +854,9 @@ async function handleEvents(
         "Method not allowed"
     },
     {
-      status: 405,
+      status:
+        405,
+
       headers: {
         Allow:
           "GET, POST, DELETE"
