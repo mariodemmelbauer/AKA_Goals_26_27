@@ -35,7 +35,7 @@ const JWKS_V1 =
   );
 
 /* =========================================================
-   TEAMS TOKEN
+   AUTH
    ========================================================= */
 
 async function validateTeamsToken(
@@ -117,6 +117,35 @@ async function validateTeamsToken(
   }
 
   return result.payload;
+}
+
+async function requireAuth(
+  request: Request
+): Promise<Response | null> {
+  try {
+    await validateTeamsToken(
+      request
+    );
+
+    return null;
+  } catch (
+    error
+  ) {
+    console.error(
+      "Auth error:",
+      error
+    );
+
+    return Response.json(
+      {
+        error:
+          "Teams authentication failed"
+      },
+      {
+        status: 401
+      }
+    );
+  }
 }
 
 /* =========================================================
@@ -232,7 +261,6 @@ async function handleMe(
     error
   ) {
     console.error(
-      "Teams token validation failed:",
       error
     );
 
@@ -245,42 +273,7 @@ async function handleMe(
           "Invalid Teams SSO token"
       },
       {
-        status:
-          401
-      }
-    );
-  }
-}
-
-/* =========================================================
-   AUTH HELPER
-   ========================================================= */
-
-async function requireAuth(
-  request: Request
-): Promise<Response | null> {
-  try {
-    await validateTeamsToken(
-      request
-    );
-
-    return null;
-  } catch (
-    error
-  ) {
-    console.error(
-      "Auth error:",
-      error
-    );
-
-    return Response.json(
-      {
-        error:
-          "Teams authentication failed"
-      },
-      {
-        status:
-          401
+        status: 401
       }
     );
   }
@@ -424,8 +417,7 @@ async function handleTeamEvents(
           "team fehlt"
       },
       {
-        status:
-          400
+        status: 400
       }
     );
   }
@@ -476,15 +468,19 @@ async function handleTeamEvents(
 
 type CreateEventBody = {
   match_id?: number | string;
+
   team?: string;
+
   event_type?: string;
 
   minute?: number | null;
 
   scorer?: string | null;
+
   assister?: string | null;
 
   phase?: string | null;
+
   creation_type?: string | null;
 
   assist_x?: number | null;
@@ -493,11 +489,14 @@ type CreateEventBody = {
   finish_x?: number | null;
   finish_y?: number | null;
 
-  start_x?: number | null;
-  start_y?: number | null;
+  assist_zone?: string | null;
+  finish_zone?: string | null;
 
-  end_x?: number | null;
-  end_y?: number | null;
+  finish_touch?: string | null;
+
+  set_piece_type?: string | null;
+
+  comment?: string | null;
 };
 
 async function getEvents(
@@ -523,8 +522,7 @@ async function getEvents(
           "match_id fehlt"
       },
       {
-        status:
-          400
+        status: 400
       }
     );
   }
@@ -586,8 +584,7 @@ async function createEvent(
           "Ungültiger JSON Body"
       },
       {
-        status:
-          400
+        status: 400
       }
     );
   }
@@ -602,8 +599,7 @@ async function createEvent(
           "match_id fehlt"
       },
       {
-        status:
-          400
+        status: 400
       }
     );
   }
@@ -618,8 +614,7 @@ async function createEvent(
           "team fehlt"
       },
       {
-        status:
-          400
+        status: 400
       }
     );
   }
@@ -636,31 +631,10 @@ async function createEvent(
           "event_type muss Tor oder Gegentor sein"
       },
       {
-        status:
-          400
+        status: 400
       }
     );
   }
-
-  const assistX =
-    body.assist_x ??
-    body.start_x ??
-    null;
-
-  const assistY =
-    body.assist_y ??
-    body.start_y ??
-    null;
-
-  const finishX =
-    body.finish_x ??
-    body.end_x ??
-    null;
-
-  const finishY =
-    body.finish_y ??
-    body.end_y ??
-    null;
 
   const event = {
     match_id:
@@ -693,16 +667,40 @@ async function createEvent(
       null,
 
     assist_x:
-      assistX,
+      body.assist_x ??
+      null,
 
     assist_y:
-      assistY,
+      body.assist_y ??
+      null,
 
     finish_x:
-      finishX,
+      body.finish_x ??
+      null,
 
     finish_y:
-      finishY
+      body.finish_y ??
+      null,
+
+    assist_zone:
+      body.assist_zone?.trim() ||
+      null,
+
+    finish_zone:
+      body.finish_zone?.trim() ||
+      null,
+
+    finish_touch:
+      body.finish_touch?.trim() ||
+      null,
+
+    set_piece_type:
+      body.set_piece_type?.trim() ||
+      null,
+
+    comment:
+      body.comment?.trim() ||
+      null
   };
 
   const response =
@@ -761,8 +759,7 @@ async function createEvent(
           : created
     },
     {
-      status:
-        201
+      status: 201
     }
   );
 }
@@ -790,8 +787,7 @@ async function deleteEvent(
           "Event-ID fehlt"
       },
       {
-        status:
-          400
+        status: 400
       }
     );
   }
@@ -906,8 +902,7 @@ async function handleEvents(
         "Method not allowed"
     },
     {
-      status:
-        405,
+      status: 405,
 
       headers: {
         Allow:

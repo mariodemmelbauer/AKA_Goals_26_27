@@ -81,6 +81,15 @@ type GoalEvent = {
   finish_x?: number | null;
   finish_y?: number | null;
 
+  assist_zone?: string | null;
+  finish_zone?: string | null;
+
+  finish_touch?: string | null;
+
+  set_piece_type?: string | null;
+
+  comment?: string | null;
+
   [key: string]: unknown;
 };
 
@@ -105,13 +114,6 @@ type DatabasePoint = {
 
 type StatItem = {
   name: string;
-  count: number;
-  percentage: number;
-};
-
-type HeatCell = {
-  row: number;
-  col: number;
   count: number;
   percentage: number;
 };
@@ -150,22 +152,27 @@ const CREATION_TYPES = [
   "Sonstiges"
 ];
 
+const FINISH_TOUCHES = [
+  "",
+  "One Touch",
+  "Two Touches",
+  ">2 Touches"
+];
+
+const SET_PIECE_TYPES = [
+  "",
+  "Eckball links",
+  "Eckball rechts",
+  "Elfmeter",
+  "Direkter Freistoß",
+  "Indirekter Freistoß",
+  "Einwurf",
+  "Sonstiger Standard"
+];
+
 
 /* =====================================================
    KOORDINATEN
-
-   Datenbank:
-   x = Spielfeldlänge
-   0   = eigenes Tor
-   100 = gegnerisches Tor
-
-   y = Spielfeldbreite
-   0   = links
-   100 = rechts
-
-   Bildschirm:
-   horizontal = DB-y
-   vertikal   = 100 - DB-x
    ===================================================== */
 
 function databaseToScreen(
@@ -195,11 +202,6 @@ function screenToDatabase(
       screenX
   };
 }
-
-
-/* =====================================================
-   EVENT POINTS
-   ===================================================== */
 
 function getAssistPoint(
   event: GoalEvent
@@ -249,7 +251,7 @@ function getFinishPoint(
 
 
 /* =====================================================
-   PROZENT
+   STATS
    ===================================================== */
 
 function percentage(
@@ -271,16 +273,12 @@ function percentage(
   );
 }
 
-
-/* =====================================================
-   STATISTIK
-   ===================================================== */
-
 function createStats(
   events: GoalEvent[],
-  field:
-    | "phase"
-    | "creation_type"
+  getValue:
+    (
+      event: GoalEvent
+    ) => string | null | undefined
 ): StatItem[] {
   const map =
     new Map<
@@ -291,7 +289,9 @@ function createStats(
   events.forEach(
     event => {
       const raw =
-        event[field];
+        getValue(
+          event
+        );
 
       const key =
         typeof raw ===
@@ -324,7 +324,9 @@ function createStats(
         ]
       ) => ({
         name,
+
         count,
+
         percentage:
           percentage(
             count,
@@ -344,123 +346,7 @@ function createStats(
 
 
 /* =====================================================
-   HEATMAP
-   ===================================================== */
-
-function buildHeatmap(
-  events: GoalEvent[],
-  rows = 12,
-  cols = 8
-): HeatCell[] {
-  const counts =
-    Array.from(
-      {
-        length:
-          rows * cols
-      },
-      () => 0
-    );
-
-  let positionedEvents =
-    0;
-
-  events.forEach(
-    event => {
-      const finish =
-        getFinishPoint(
-          event
-        );
-
-      if (
-        !finish
-      ) {
-        return;
-      }
-
-      const screen =
-        databaseToScreen(
-          finish.x,
-          finish.y
-        );
-
-      const safeX =
-        Math.min(
-          99.999,
-          Math.max(
-            0,
-            screen.x
-          )
-        );
-
-      const safeY =
-        Math.min(
-          99.999,
-          Math.max(
-            0,
-            screen.y
-          )
-        );
-
-      const col =
-        Math.floor(
-          (
-            safeX /
-            100
-          ) *
-            cols
-        );
-
-      const row =
-        Math.floor(
-          (
-            safeY /
-            100
-          ) *
-            rows
-        );
-
-      const index =
-        row *
-          cols +
-        col;
-
-      counts[index] +=
-        1;
-
-      positionedEvents +=
-        1;
-    }
-  );
-
-  return counts.map(
-    (
-      count,
-      index
-    ) => ({
-      row:
-        Math.floor(
-          index /
-            cols
-        ),
-
-      col:
-        index %
-        cols,
-
-      count,
-
-      percentage:
-        percentage(
-          count,
-          positionedEvents
-        )
-    })
-  );
-}
-
-
-/* =====================================================
-   EVENT PITCH
+   PITCH
    ===================================================== */
 
 function EventPitch({
@@ -480,15 +366,10 @@ function EventPitch({
       <div className="football-pitch analysis-pitch">
 
         <div className="pitch-halfway-line" />
-
         <div className="pitch-center-circle" />
-
         <div className="penalty-area penalty-area-top" />
-
         <div className="penalty-area penalty-area-bottom" />
-
         <div className="goal-area goal-area-top" />
-
         <div className="goal-area goal-area-bottom" />
 
         <svg
@@ -562,7 +443,7 @@ function EventPitch({
               return null;
             }
 
-            const point =
+            const p =
               databaseToScreen(
                 assist.x,
                 assist.y
@@ -574,9 +455,9 @@ function EventPitch({
                 className="analysis-start-point"
                 style={{
                   left:
-                    `${point.x}%`,
+                    `${p.x}%`,
                   top:
-                    `${point.y}%`
+                    `${p.y}%`
                 }}
               />
             );
@@ -599,7 +480,7 @@ function EventPitch({
               return null;
             }
 
-            const point =
+            const p =
               databaseToScreen(
                 finish.x,
                 finish.y
@@ -611,9 +492,9 @@ function EventPitch({
                 className="analysis-end-point"
                 style={{
                   left:
-                    `${point.x}%`,
+                    `${p.x}%`,
                   top:
-                    `${point.y}%`
+                    `${p.y}%`
                 }}
               >
                 {event.minute ??
@@ -622,135 +503,6 @@ function EventPitch({
             );
           }
         )}
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =====================================================
-   FINISH HEATMAP
-   ===================================================== */
-
-function FinishHeatmap({
-  events,
-  title
-}: {
-  events: GoalEvent[];
-  title: string;
-}) {
-  const rows =
-    12;
-
-  const cols =
-    8;
-
-  const cells =
-    useMemo(
-      () =>
-        buildHeatmap(
-          events,
-          rows,
-          cols
-        ),
-      [
-        events
-      ]
-    );
-
-  const maxCount =
-    Math.max(
-      0,
-      ...cells.map(
-        cell =>
-          cell.count
-      )
-    );
-
-  const positionedCount =
-    events.filter(
-      event =>
-        getFinishPoint(
-          event
-        ) != null
-    ).length;
-
-  return (
-    <div className="analysis-pitch-wrapper">
-
-      <h3>
-        {title}
-      </h3>
-
-      <p className="heatmap-info">
-        {positionedCount} von{" "}
-        {events.length} Ereignissen
-        mit Abschlussposition
-      </p>
-
-      <div className="football-pitch analysis-pitch heatmap-pitch">
-
-        <div className="pitch-halfway-line" />
-        <div className="pitch-center-circle" />
-        <div className="penalty-area penalty-area-top" />
-        <div className="penalty-area penalty-area-bottom" />
-        <div className="goal-area goal-area-top" />
-        <div className="goal-area goal-area-bottom" />
-
-        <div
-          className="heatmap-grid"
-          style={{
-            gridTemplateColumns:
-              `repeat(${cols}, 1fr)`,
-
-            gridTemplateRows:
-              `repeat(${rows}, 1fr)`
-          }}
-        >
-
-          {cells.map(
-            cell => {
-              const intensity =
-                maxCount > 0
-                  ? cell.count /
-                    maxCount
-                  : 0;
-
-              return (
-                <div
-                  key={`${cell.row}-${cell.col}`}
-                  className={`heatmap-cell ${
-                    cell.count > 0
-                      ? "heatmap-cell-active"
-                      : ""
-                  }`}
-                  style={{
-                    opacity:
-                      cell.count > 0
-                        ? 0.2 +
-                          intensity *
-                            0.65
-                        : 0
-                  }}
-                  title={
-                    cell.count > 0
-                      ? `${cell.count} Abschlüsse (${cell.percentage} %)`
-                      : ""
-                  }
-                >
-                  {cell.count > 0 && (
-                    <span>
-                      {cell.count}
-                    </span>
-                  )}
-                </div>
-              );
-            }
-          )}
-
-        </div>
 
       </div>
 
@@ -969,6 +721,24 @@ function App() {
   const [
     creationType,
     setCreationType
+  ] =
+    useState("");
+
+  const [
+    finishTouch,
+    setFinishTouch
+  ] =
+    useState("");
+
+  const [
+    setPieceType,
+    setSetPieceType
+  ] =
+    useState("");
+
+  const [
+    comment,
+    setComment
   ] =
     useState("");
 
@@ -1239,7 +1009,6 @@ function App() {
           !response.ok
         ) {
           console.error(
-            "Team Events:",
             data
           );
 
@@ -1292,45 +1061,36 @@ function App() {
         match
       );
 
-      try {
-        const token =
-          await getTeamsToken();
+      const token =
+        await getTeamsToken();
 
-        const response =
-          await fetch(
-            `/api/events?match_id=${encodeURIComponent(
-              String(
-                match.id
-              )
-            )}`,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${token}`
-              }
-            }
-          );
-
-        const data =
-          (await response.json()) as EventsResponse;
-
-        if (
-          response.ok
-        ) {
-          setEvents(
-            Array.isArray(
-              data.events
+      const response =
+        await fetch(
+          `/api/events?match_id=${encodeURIComponent(
+            String(
+              match.id
             )
-              ? data.events
-              : []
-          );
-        }
-      } catch (
-        error
+          )}`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`
+            }
+          }
+        );
+
+      const data =
+        (await response.json()) as EventsResponse;
+
+      if (
+        response.ok
       ) {
-        console.error(
-          "Events:",
-          error
+        setEvents(
+          Array.isArray(
+            data.events
+          )
+            ? data.events
+            : []
         );
       }
     };
@@ -1393,7 +1153,9 @@ function App() {
       setAssister("");
       setPhase("");
       setCreationType("");
-      setSaveStatus("");
+      setFinishTouch("");
+      setSetPieceType("");
+      setComment("");
 
       setAssistScreenPoint(
         null
@@ -1402,6 +1164,8 @@ function App() {
       setFinishScreenPoint(
         null
       );
+
+      setSaveStatus("");
 
       setShowEventForm(
         true
@@ -1545,12 +1309,14 @@ function App() {
                         ),
 
                   scorer:
-                    eventType === "Tor"
+                    eventType ===
+                    "Tor"
                       ? scorer
                       : null,
 
                   assister:
-                    eventType === "Tor"
+                    eventType ===
+                    "Tor"
                       ? assister
                       : null,
 
@@ -1558,6 +1324,14 @@ function App() {
 
                   creation_type:
                     creationType,
+
+                  finish_touch:
+                    finishTouch,
+
+                  set_piece_type:
+                    setPieceType,
+
+                  comment,
 
                   assist_x:
                     assistDatabase.x,
@@ -1700,6 +1474,7 @@ function App() {
       ]
     );
 
+
   const teamConceded =
     useMemo(
       () =>
@@ -1714,12 +1489,14 @@ function App() {
     );
 
 
-  const goalPhaseStats =
+  const goalTouchStats =
     useMemo(
       () =>
         createStats(
           teamGoals,
-          "phase"
+
+          event =>
+            event.finish_touch
         ),
       [
         teamGoals
@@ -1727,12 +1504,14 @@ function App() {
     );
 
 
-  const concededPhaseStats =
+  const concededTouchStats =
     useMemo(
       () =>
         createStats(
           teamConceded,
-          "phase"
+
+          event =>
+            event.finish_touch
         ),
       [
         teamConceded
@@ -1740,12 +1519,19 @@ function App() {
     );
 
 
-  const goalCreationStats =
+  const goalSetPieceStats =
     useMemo(
       () =>
         createStats(
-          teamGoals,
-          "creation_type"
+          teamGoals.filter(
+            event =>
+              Boolean(
+                event.set_piece_type
+              )
+          ),
+
+          event =>
+            event.set_piece_type
         ),
       [
         teamGoals
@@ -1753,12 +1539,19 @@ function App() {
     );
 
 
-  const concededCreationStats =
+  const concededSetPieceStats =
     useMemo(
       () =>
         createStats(
-          teamConceded,
-          "creation_type"
+          teamConceded.filter(
+            event =>
+              Boolean(
+                event.set_piece_type
+              )
+          ),
+
+          event =>
+            event.set_piece_type
         ),
       [
         teamConceded
@@ -1766,167 +1559,48 @@ function App() {
     );
 
 
-  const minuteBuckets =
+  const assistZoneStats =
     useMemo(
-      () => {
-        const buckets =
-          selectedTeam ===
-            "U15"
-            ? [
-                {
-                  label:
-                    "0–15",
-                  min:
-                    0,
-                  max:
-                    15
-                },
-                {
-                  label:
-                    "16–30",
-                  min:
-                    16,
-                  max:
-                    30
-                },
-                {
-                  label:
-                    "31–40",
-                  min:
-                    31,
-                  max:
-                    40
-                },
-                {
-                  label:
-                    "41–55",
-                  min:
-                    41,
-                  max:
-                    55
-                },
-                {
-                  label:
-                    "56–70",
-                  min:
-                    56,
-                  max:
-                    70
-                },
-                {
-                  label:
-                    "71–85",
-                  min:
-                    71,
-                  max:
-                    85
-                }
-              ]
-            : [
-                {
-                  label:
-                    "0–15",
-                  min:
-                    0,
-                  max:
-                    15
-                },
-                {
-                  label:
-                    "16–30",
-                  min:
-                    16,
-                  max:
-                    30
-                },
-                {
-                  label:
-                    "31–45",
-                  min:
-                    31,
-                  max:
-                    45
-                },
-                {
-                  label:
-                    "46–60",
-                  min:
-                    46,
-                  max:
-                    60
-                },
-                {
-                  label:
-                    "61–75",
-                  min:
-                    61,
-                  max:
-                    75
-                },
-                {
-                  label:
-                    "76–95",
-                  min:
-                    76,
-                  max:
-                    95
-                }
-              ];
+      () =>
+        createStats(
+          teamGoals.filter(
+            event =>
+              Boolean(
+                event.assist_zone
+              )
+          ),
 
-        return buckets.map(
-          bucket => {
-            const goals =
-              teamGoals.filter(
-                event =>
-                  event.minute != null &&
-                  event.minute >=
-                    bucket.min &&
-                  event.minute <=
-                    bucket.max
-              ).length;
-
-            const conceded =
-              teamConceded.filter(
-                event =>
-                  event.minute != null &&
-                  event.minute >=
-                    bucket.min &&
-                  event.minute <=
-                    bucket.max
-              ).length;
-
-            return {
-              ...bucket,
-
-              goals,
-
-              goalPercentage:
-                percentage(
-                  goals,
-                  teamGoals.length
-                ),
-
-              conceded,
-
-              concededPercentage:
-                percentage(
-                  conceded,
-                  teamConceded.length
-                )
-            };
-          }
-        );
-      },
+          event =>
+            event.assist_zone
+        ),
       [
-        selectedTeam,
-        teamGoals,
-        teamConceded
+        teamGoals
+      ]
+    );
+
+
+  const finishZoneStats =
+    useMemo(
+      () =>
+        createStats(
+          teamGoals.filter(
+            event =>
+              Boolean(
+                event.finish_zone
+              )
+          ),
+
+          event =>
+            event.finish_zone
+        ),
+      [
+        teamGoals
       ]
     );
 
 
   /* =====================================================
-     MATCH HELPERS
+     HELPERS
      ===================================================== */
 
   const getMatchTitle =
@@ -1937,69 +1611,6 @@ function App() {
         "string"
         ? match.opponent
         : "Unbekannter Gegner";
-
-
-  const getMatchDate =
-    (
-      match: MatchItem
-    ) => {
-      const raw =
-        typeof match.date ===
-        "string"
-          ? match.date
-          : typeof match.match_date ===
-              "string"
-            ? match.match_date
-            : "";
-
-      if (
-        !raw
-      ) {
-        return "";
-      }
-
-      const date =
-        new Date(
-          raw
-        );
-
-      if (
-        Number.isNaN(
-          date.getTime()
-        )
-      ) {
-        return raw;
-      }
-
-      return new Intl.DateTimeFormat(
-        "de-DE",
-        {
-          day:
-            "2-digit",
-
-          month:
-            "2-digit",
-
-          year:
-            "numeric"
-        }
-      ).format(
-        date
-      );
-    };
-
-
-  const getCompetition =
-    (
-      match: MatchItem
-    ) =>
-      typeof match.competition ===
-        "string"
-        ? match.competition
-        : typeof match.competition_type ===
-            "string"
-          ? match.competition_type
-          : "";
 
 
   const goals =
@@ -2018,10 +1629,6 @@ function App() {
     );
 
 
-  /* =====================================================
-     EVENT LIST
-     ===================================================== */
-
   const renderEvent =
     (
       event: GoalEvent
@@ -2032,6 +1639,7 @@ function App() {
             event.id
           )
         }
+
         className="event-entry"
       >
 
@@ -2066,6 +1674,41 @@ function App() {
           <p>
             Entstehung:{" "}
             {event.creation_type}
+          </p>
+        )}
+
+        {event.finish_touch && (
+          <p>
+            Abschlusskontakt:{" "}
+            {event.finish_touch}
+          </p>
+        )}
+
+        {event.set_piece_type && (
+          <p>
+            Standard:{" "}
+            {event.set_piece_type}
+          </p>
+        )}
+
+        {event.assist_zone && (
+          <p>
+            Assist-Zone:{" "}
+            {event.assist_zone}
+          </p>
+        )}
+
+        {event.finish_zone && (
+          <p>
+            Abschluss-Zone:{" "}
+            {event.finish_zone}
+          </p>
+        )}
+
+        {event.comment && (
+          <p>
+            Kommentar:{" "}
+            {event.comment}
           </p>
         )}
 
@@ -2130,8 +1773,6 @@ function App() {
         </p>
 
 
-        {/* TEAM AUSWAHL */}
-
         <div className="cards">
 
           {TEAMS.map(
@@ -2169,10 +1810,6 @@ function App() {
                     false
                   );
 
-                  setEventToDelete(
-                    null
-                  );
-
                   void loadMatches(
                     team
                   );
@@ -2193,8 +1830,6 @@ function App() {
 
         </div>
 
-
-        {/* NAVIGATION */}
 
         <div className="view-switcher">
 
@@ -2232,33 +1867,28 @@ function App() {
 
 
         {/* =================================================
-            TEAM AUSWERTUNG
+            TEAM ANALYSIS
             ================================================= */}
 
         {viewMode ===
           "analysis" ? (
 
-          <section className="team-analysis-section">
+          <section>
 
             <h2>
               {selectedTeam} – Team-Auswertung
             </h2>
 
             {loadingTeamEvents ? (
-
               <p>
                 Auswertung wird geladen …
               </p>
-
             ) : (
               <>
-
-                {/* KPI */}
 
                 <div className="analysis-kpis">
 
                   <div className="kpi-card">
-
                     <span>
                       Tore
                     </span>
@@ -2266,11 +1896,9 @@ function App() {
                     <strong>
                       {teamGoals.length}
                     </strong>
-
                   </div>
 
                   <div className="kpi-card">
-
                     <span>
                       Gegentore
                     </span>
@@ -2278,11 +1906,9 @@ function App() {
                     <strong>
                       {teamConceded.length}
                     </strong>
-
                   </div>
 
                   <div className="kpi-card">
-
                     <span>
                       Tordifferenz
                     </span>
@@ -2291,11 +1917,9 @@ function App() {
                       {teamGoals.length -
                         teamConceded.length}
                     </strong>
-
                   </div>
 
                   <div className="kpi-card">
-
                     <span>
                       Spiele
                     </span>
@@ -2303,13 +1927,79 @@ function App() {
                     <strong>
                       {matches.length}
                     </strong>
-
                   </div>
 
                 </div>
 
 
-                {/* ALLE EVENTS */}
+                <h2 className="analysis-heading">
+                  Abschluss nach Kontakten
+                </h2>
+
+                <div className="events-grid">
+
+                  <StatCard
+                    title="Tore"
+                    stats={
+                      goalTouchStats
+                    }
+                  />
+
+                  <StatCard
+                    title="Gegentore"
+                    stats={
+                      concededTouchStats
+                    }
+                  />
+
+                </div>
+
+
+                <h2 className="analysis-heading">
+                  Standards
+                </h2>
+
+                <div className="events-grid">
+
+                  <StatCard
+                    title="Tore nach Standard"
+                    stats={
+                      goalSetPieceStats
+                    }
+                  />
+
+                  <StatCard
+                    title="Gegentore nach Standard"
+                    stats={
+                      concededSetPieceStats
+                    }
+                  />
+
+                </div>
+
+
+                <h2 className="analysis-heading">
+                  Zonen
+                </h2>
+
+                <div className="events-grid">
+
+                  <StatCard
+                    title="Assist-Zonen Tore"
+                    stats={
+                      assistZoneStats
+                    }
+                  />
+
+                  <StatCard
+                    title="Abschluss-Zonen Tore"
+                    stats={
+                      finishZoneStats
+                    }
+                  />
+
+                </div>
+
 
                 <h2 className="analysis-heading">
                   Positionsdaten
@@ -2321,7 +2011,6 @@ function App() {
                     events={
                       teamGoals
                     }
-
                     title={`Alle Tore (${teamGoals.length})`}
                   />
 
@@ -2329,145 +2018,8 @@ function App() {
                     events={
                       teamConceded
                     }
-
                     title={`Alle Gegentore (${teamConceded.length})`}
                   />
-
-                </div>
-
-
-                {/* HEATMAP */}
-
-                <h2 className="analysis-heading">
-                  Abschluss-Heatmap
-                </h2>
-
-                <div className="analysis-grid">
-
-                  <FinishHeatmap
-                    events={
-                      teamGoals
-                    }
-
-                    title="Tore – Abschlusspositionen"
-                  />
-
-                  <FinishHeatmap
-                    events={
-                      teamConceded
-                    }
-
-                    title="Gegentore – Abschlusspositionen"
-                  />
-
-                </div>
-
-
-                {/* PHASEN */}
-
-                <h2 className="analysis-heading">
-                  Spielphasen
-                </h2>
-
-                <div className="events-grid">
-
-                  <StatCard
-                    title="Tore nach Phase"
-                    stats={
-                      goalPhaseStats
-                    }
-                  />
-
-                  <StatCard
-                    title="Gegentore nach Phase"
-                    stats={
-                      concededPhaseStats
-                    }
-                  />
-
-                </div>
-
-
-                {/* ENTSTEHUNG */}
-
-                <h2 className="analysis-heading">
-                  Entstehungsarten
-                </h2>
-
-                <div className="events-grid">
-
-                  <StatCard
-                    title="Tore – Entstehung"
-                    stats={
-                      goalCreationStats
-                    }
-                  />
-
-                  <StatCard
-                    title="Gegentore – Entstehung"
-                    stats={
-                      concededCreationStats
-                    }
-                  />
-
-                </div>
-
-
-                {/* SPIELMINUTEN */}
-
-                <h2 className="analysis-heading">
-                  Tore nach Spielminute
-                </h2>
-
-                <div className="card minute-analysis-card">
-
-                  <div className="minute-table minute-table-header">
-
-                    <strong>
-                      Zeitraum
-                    </strong>
-
-                    <strong>
-                      Tore
-                    </strong>
-
-                    <strong>
-                      Gegentore
-                    </strong>
-
-                  </div>
-
-                  {minuteBuckets.map(
-                    bucket => (
-
-                      <div
-                        key={
-                          bucket.label
-                        }
-
-                        className="minute-table minute-row"
-                      >
-
-                        <strong>
-                          {bucket.label}
-                        </strong>
-
-                        <span>
-                          {bucket.goals}
-                          {" "}
-                          ({bucket.goalPercentage}%)
-                        </span>
-
-                        <span>
-                          {bucket.conceded}
-                          {" "}
-                          ({bucket.concededPercentage}%)
-                        </span>
-
-                      </div>
-
-                    )
-                  )}
 
                 </div>
 
@@ -2479,27 +2031,17 @@ function App() {
         ) : selectedMatch ? (
 
           /* =================================================
-             EINZELSPIEL
+             MATCH DETAIL
              ================================================= */
 
-          <section className="match-detail">
+          <section>
 
             <button
-              onClick={() => {
+              onClick={() =>
                 setSelectedMatch(
                   null
-                );
-
-                setEvents([]);
-
-                setShowEventForm(
-                  false
-                );
-
-                setEventToDelete(
-                  null
-                );
-              }}
+                )
+              }
             >
               ← Zurück zu den Spielen
             </button>
@@ -2511,22 +2053,6 @@ function App() {
                 selectedMatch
               )}
             </h2>
-
-            <p>
-              {getMatchDate(
-                selectedMatch
-              )}
-            </p>
-
-            {getCompetition(
-              selectedMatch
-            ) && (
-              <p>
-                {getCompetition(
-                  selectedMatch
-                )}
-              </p>
-            )}
 
 
             <div className="event-actions">
@@ -2554,24 +2080,13 @@ function App() {
             </div>
 
 
-            {/* DELETE */}
-
             {eventToDelete && (
 
               <div className="delete-confirm-box">
 
                 <strong>
-                  {eventToDelete.event_type ===
-                  "Gegentor"
-                    ? "Gegentor löschen?"
-                    : "Tor löschen?"}
+                  Ereignis löschen?
                 </strong>
-
-                <p>
-                  {eventToDelete.minute != null
-                    ? `${eventToDelete.minute}. Minute`
-                    : "Minute unbekannt"}
-                </p>
 
                 <div className="form-actions">
 
@@ -2584,21 +2099,15 @@ function App() {
                       deletingEvent
                     }
                   >
-                    {deletingEvent
-                      ? "Wird gelöscht …"
-                      : "Ja, löschen"}
+                    Ja, löschen
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={() =>
                       setEventToDelete(
                         null
-                      );
-
-                      setDeleteStatus(
-                        ""
-                      );
-                    }}
+                      )
+                    }
                   >
                     Abbrechen
                   </button>
@@ -2615,8 +2124,6 @@ function App() {
 
             )}
 
-
-            {/* FORM */}
 
             {showEventForm && (
 
@@ -2635,9 +2142,11 @@ function App() {
                       type="number"
                       min="0"
                       max="130"
+
                       value={
                         minute
                       }
+
                       onChange={
                         event =>
                           setMinute(
@@ -2659,6 +2168,7 @@ function App() {
                           value={
                             scorer
                           }
+
                           onChange={
                             event =>
                               setScorer(
@@ -2675,6 +2185,7 @@ function App() {
                           value={
                             assister
                           }
+
                           onChange={
                             event =>
                               setAssister(
@@ -2695,6 +2206,7 @@ function App() {
                       value={
                         phase
                       }
+
                       onChange={
                         event =>
                           setPhase(
@@ -2702,13 +2214,13 @@ function App() {
                           )
                       }
                     >
-
                       {PHASES.map(
                         item => (
                           <option
                             key={
                               item
                             }
+
                             value={
                               item
                             }
@@ -2718,7 +2230,6 @@ function App() {
                           </option>
                         )
                       )}
-
                     </select>
                   </label>
 
@@ -2730,6 +2241,7 @@ function App() {
                       value={
                         creationType
                       }
+
                       onChange={
                         event =>
                           setCreationType(
@@ -2737,13 +2249,13 @@ function App() {
                           )
                       }
                     >
-
                       {CREATION_TYPES.map(
                         item => (
                           <option
                             key={
                               item
                             }
+
                             value={
                               item
                             }
@@ -2753,8 +2265,99 @@ function App() {
                           </option>
                         )
                       )}
-
                     </select>
+                  </label>
+
+
+                  <label>
+                    Abschlusskontakt
+
+                    <select
+                      value={
+                        finishTouch
+                      }
+
+                      onChange={
+                        event =>
+                          setFinishTouch(
+                            event.target.value
+                          )
+                      }
+                    >
+                      {FINISH_TOUCHES.map(
+                        item => (
+                          <option
+                            key={
+                              item
+                            }
+
+                            value={
+                              item
+                            }
+                          >
+                            {item ||
+                              "Bitte auswählen"}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+
+
+                  <label>
+                    Standard
+
+                    <select
+                      value={
+                        setPieceType
+                      }
+
+                      onChange={
+                        event =>
+                          setSetPieceType(
+                            event.target.value
+                          )
+                      }
+                    >
+                      {SET_PIECE_TYPES.map(
+                        item => (
+                          <option
+                            key={
+                              item
+                            }
+
+                            value={
+                              item
+                            }
+                          >
+                            {item ||
+                              "Kein Standard"}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+
+
+                  <label>
+                    Kommentar
+
+                    <textarea
+                      value={
+                        comment
+                      }
+
+                      onChange={
+                        event =>
+                          setComment(
+                            event.target.value
+                          )
+                      }
+
+                      rows={
+                        3
+                      }
+                    />
                   </label>
 
 
@@ -2844,6 +2447,7 @@ function App() {
 
                   </div>
 
+
                   <button
                     type="button"
 
@@ -2909,6 +2513,7 @@ function App() {
                 events={
                   goals
                 }
+
                 title={`Tore (${goals.length})`}
               />
 
@@ -2916,6 +2521,7 @@ function App() {
                 events={
                   concededGoals
                 }
+
                 title={`Gegentore (${concededGoals.length})`}
               />
 
@@ -2930,7 +2536,8 @@ function App() {
                   Tore ({goals.length})
                 </h2>
 
-                {goals.length === 0
+                {goals.length ===
+                  0
                   ? (
                     <p>
                       Keine Tore erfasst.
@@ -2942,13 +2549,15 @@ function App() {
 
               </div>
 
+
               <div className="card">
 
                 <h2>
                   Gegentore ({concededGoals.length})
                 </h2>
 
-                {concededGoals.length === 0
+                {concededGoals.length ===
+                  0
                   ? (
                     <p>
                       Keine Gegentore erfasst.
@@ -2967,10 +2576,10 @@ function App() {
         ) : (
 
           /* =================================================
-             SPIELLISTE
+             MATCH LIST
              ================================================= */
 
-          <section className="matches-section">
+          <section>
 
             <h2>
               {selectedTeam} Spiele
@@ -2980,73 +2589,49 @@ function App() {
               {matchesStatus}
             </p>
 
-            {loadingMatches ? (
+            {loadingMatches
+              ? (
+                <p>
+                  Daten werden geladen …
+                </p>
+              )
+              : matches.map(
+                  (
+                    match,
+                    index
+                  ) => (
 
-              <p>
-                Daten werden geladen …
-              </p>
+                    <div
+                      key={
+                        String(
+                          match.id ??
+                          index
+                        )
+                      }
 
-            ) : (
+                      className="card match-card"
 
-              matches.map(
-                (
-                  match,
-                  index
-                ) => (
+                      onClick={() =>
+                        void loadEvents(
+                          match
+                        )
+                      }
+                    >
 
-                  <div
-                    key={String(
-                      match.id ??
-                        index
-                    )}
-
-                    className="card match-card"
-
-                    onClick={() =>
-                      void loadEvents(
-                        match
-                      )
-                    }
-                  >
-
-                    <h3>
-                      {getMatchTitle(
-                        match
-                      )}
-                    </h3>
-
-                    <p>
-                      <strong>
-                        Datum:
-                      </strong>{" "}
-                      {getMatchDate(
-                        match
-                      )}
-                    </p>
-
-                    {getCompetition(
-                      match
-                    ) && (
-                      <p>
-                        <strong>
-                          Bewerb:
-                        </strong>{" "}
-                        {getCompetition(
+                      <h3>
+                        {getMatchTitle(
                           match
                         )}
+                      </h3>
+
+                      <p>
+                        Öffnen →
                       </p>
-                    )}
 
-                    <p>
-                      Öffnen →
-                    </p>
+                    </div>
 
-                  </div>
-
-                )
-              )
-
-            )}
+                  )
+                )}
 
           </section>
 
