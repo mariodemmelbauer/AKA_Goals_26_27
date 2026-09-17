@@ -31,7 +31,7 @@ header span {
 
 main {
   padding: 28px;
-  max-width: 1120px;
+  max-width: 1180px;
   margin: 0 auto;
   text-align: center;
 }
@@ -39,6 +39,7 @@ main {
 .status {
   color: #666;
 }
+
 
 /* =========================================================
    CARDS
@@ -95,6 +96,7 @@ main {
   background: #fafafa;
 }
 
+
 /* =========================================================
    BUTTONS
    ========================================================= */
@@ -117,21 +119,39 @@ button:disabled {
   opacity: 0.6;
 }
 
-.delete-event-button {
-  margin-top: 8px;
-  font-size: 12px;
-}
 
 /* =========================================================
-   MATCH DETAIL
+   VIEW SWITCHER
+   ========================================================= */
+
+.view-switcher {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 24px 0 30px;
+}
+
+.view-button-active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.view-button-active:hover {
+  background: #222;
+}
+
+
+/* =========================================================
+   MATCH
    ========================================================= */
 
 .match-detail {
-  margin-top: 32px;
+  margin-top: 20px;
 }
 
 .matches-section {
-  margin-top: 32px;
+  margin-top: 20px;
 }
 
 .event-actions {
@@ -141,6 +161,7 @@ button:disabled {
   flex-wrap: wrap;
   margin: 24px 0;
 }
+
 
 /* =========================================================
    FORM
@@ -180,13 +201,33 @@ button:disabled {
   margin-top: 20px;
 }
 
+
+/* =========================================================
+   DELETE
+   ========================================================= */
+
+.delete-event-button {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.delete-confirm-box {
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-left: 5px solid #78c832;
+  border-radius: 8px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  text-align: left;
+}
+
+
 /* =========================================================
    PITCH
    ========================================================= */
-
-.pitch-section {
-  margin-top: 8px;
-}
 
 .pitch-help {
   color: #666;
@@ -260,8 +301,9 @@ button:disabled {
   bottom: -2px;
 }
 
+
 /* =========================================================
-   INPUT POINTS
+   PITCH INPUT
    ========================================================= */
 
 .pitch-point {
@@ -280,14 +322,15 @@ button:disabled {
 
 .assist-point {
   background: #111;
-  color: white;
+  color: #fff;
 }
 
 .finish-point {
-  background: white;
+  background: #fff;
   color: #111;
   border-color: #111;
 }
+
 
 /* =========================================================
    LINES
@@ -308,9 +351,14 @@ button:disabled {
   stroke-dasharray: 5 4;
 }
 
+
 /* =========================================================
-   ANALYSIS
+   ANALYSIS PITCH
    ========================================================= */
+
+.analysis-heading {
+  margin-top: 42px;
+}
 
 .analysis-grid {
   display: grid;
@@ -320,7 +368,7 @@ button:disabled {
       minmax(320px, 1fr)
     );
   gap: 24px;
-  margin: 30px 0;
+  margin: 24px 0;
 }
 
 .analysis-pitch-wrapper {
@@ -342,7 +390,7 @@ button:disabled {
   height: 9px;
   border-radius: 50%;
   background: #111;
-  border: 1px solid white;
+  border: 1px solid #fff;
   transform:
     translate(-50%, -50%);
   z-index: 5;
@@ -354,7 +402,7 @@ button:disabled {
   height: 22px;
   padding: 0 4px;
   border-radius: 50%;
-  background: white;
+  background: #fff;
   color: #111;
   border: 2px solid #111;
   transform:
@@ -367,8 +415,84 @@ button:disabled {
   box-sizing: border-box;
 }
 
+
 /* =========================================================
-   EVENT LIST
+   KPI
+   ========================================================= */
+
+.analysis-kpis {
+  display: grid;
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(130px, 1fr)
+    );
+  gap: 14px;
+  margin: 24px 0 30px;
+}
+
+.kpi-card {
+  background: #fff;
+  border-radius: 10px;
+  border-left: 5px solid #78c832;
+  padding: 18px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.kpi-card span {
+  display: block;
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.kpi-card strong {
+  display: block;
+  font-size: 28px;
+}
+
+
+/* =========================================================
+   HEATMAP
+   ========================================================= */
+
+.heatmap-info {
+  color: #666;
+  font-size: 13px;
+}
+
+.heatmap-pitch {
+  position: relative;
+}
+
+.heatmap-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  pointer-events: none;
+}
+
+.heatmap-cell {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+.heatmap-cell-active {
+  background: #111;
+}
+
+.heatmap-cell span {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   STATS
    ========================================================= */
 
 .events-grid {
@@ -382,6 +506,82 @@ button:disabled {
   margin-top: 25px;
 }
 
+.stat-card {
+  text-align: left;
+}
+
+.stat-card h2 {
+  text-align: center;
+}
+
+.stat-list {
+  display: grid;
+  gap: 16px;
+}
+
+.stat-item {
+  display: grid;
+  gap: 6px;
+}
+
+.stat-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  font-size: 14px;
+}
+
+.stat-header strong {
+  white-space: nowrap;
+}
+
+.stat-bar-track {
+  height: 8px;
+  background: #eee;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  background: #78c832;
+  border-radius: 999px;
+}
+
+
+/* =========================================================
+   MINUTES
+   ========================================================= */
+
+.minute-analysis-card {
+  margin-top: 20px;
+}
+
+.minute-table {
+  display: grid;
+  grid-template-columns:
+    minmax(80px, 1fr)
+    minmax(100px, 1fr)
+    minmax(100px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.minute-table-header {
+  padding: 8px 0 12px;
+  border-bottom: 2px solid #ddd;
+}
+
+.minute-row {
+  padding: 12px 0;
+  border-bottom: 1px solid #ddd;
+}
+
+
+/* =========================================================
+   EVENT LIST
+   ========================================================= */
+
 .event-entry {
   border-top:
     1px solid #ddd;
@@ -394,12 +594,13 @@ button:disabled {
     5px 0;
 }
 
+
 /* =========================================================
    MOBILE
    ========================================================= */
 
 @media (
-  max-width: 700px
+  max-width: 800px
 ) {
   main {
     padding:
@@ -414,39 +615,32 @@ button:disabled {
       );
   }
 
-  .analysis-grid {
+  .analysis-kpis {
     grid-template-columns:
-      1fr;
+      repeat(
+        2,
+        1fr
+      );
   }
 
+  .analysis-grid,
   .events-grid {
     grid-template-columns:
       1fr;
   }
 }
 
-.delete-confirm-box {
-  max-width: 500px;
-  margin: 20px auto;
-  padding: 18px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-left: 5px solid #78c832;
-  border-radius: 8px;
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.08);
-  text-align: left;
-}
+@media (
+  max-width: 520px
+) {
+  .cards {
+    grid-template-columns:
+      1fr;
+  }
 
-.minute-table {
-  display: grid;
-  gap: 8px;
-}
-
-.minute-row {
-  display: grid;
-  grid-template-columns: 100px 1fr 1fr;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid #ddd;
+  .minute-table {
+    grid-template-columns:
+      70px 1fr 1fr;
+    font-size: 13px;
+  }
 }

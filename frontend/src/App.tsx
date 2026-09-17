@@ -10,6 +10,7 @@ import * as microsoftTeams
 
 import "./App.css";
 
+
 /* =====================================================
    TYPES
    ===================================================== */
@@ -102,6 +103,20 @@ type DatabasePoint = {
   y: number;
 };
 
+type StatItem = {
+  name: string;
+  count: number;
+  percentage: number;
+};
+
+type HeatCell = {
+  row: number;
+  col: number;
+  count: number;
+  percentage: number;
+};
+
+
 /* =====================================================
    CONSTANTS
    ===================================================== */
@@ -135,8 +150,22 @@ const CREATION_TYPES = [
   "Sonstiges"
 ];
 
+
 /* =====================================================
    KOORDINATEN
+
+   Datenbank:
+   x = Spielfeldlänge
+   0   = eigenes Tor
+   100 = gegnerisches Tor
+
+   y = Spielfeldbreite
+   0   = links
+   100 = rechts
+
+   Bildschirm:
+   horizontal = DB-y
+   vertikal   = 100 - DB-x
    ===================================================== */
 
 function databaseToScreen(
@@ -166,6 +195,11 @@ function screenToDatabase(
       screenX
   };
 }
+
+
+/* =====================================================
+   EVENT POINTS
+   ===================================================== */
 
 function getAssistPoint(
   event: GoalEvent
@@ -213,6 +247,218 @@ function getFinishPoint(
   };
 }
 
+
+/* =====================================================
+   PROZENT
+   ===================================================== */
+
+function percentage(
+  count: number,
+  total: number
+): number {
+  if (
+    total <= 0
+  ) {
+    return 0;
+  }
+
+  return Math.round(
+    (
+      count /
+      total
+    ) *
+      100
+  );
+}
+
+
+/* =====================================================
+   STATISTIK
+   ===================================================== */
+
+function createStats(
+  events: GoalEvent[],
+  field:
+    | "phase"
+    | "creation_type"
+): StatItem[] {
+  const map =
+    new Map<
+      string,
+      number
+    >();
+
+  events.forEach(
+    event => {
+      const raw =
+        event[field];
+
+      const key =
+        typeof raw ===
+          "string" &&
+        raw.trim()
+          ? raw.trim()
+          : "Nicht angegeben";
+
+      map.set(
+        key,
+        (
+          map.get(
+            key
+          ) ??
+          0
+        ) +
+          1
+      );
+    }
+  );
+
+  return Array.from(
+    map.entries()
+  )
+    .map(
+      (
+        [
+          name,
+          count
+        ]
+      ) => ({
+        name,
+        count,
+        percentage:
+          percentage(
+            count,
+            events.length
+          )
+      })
+    )
+    .sort(
+      (
+        a,
+        b
+      ) =>
+        b.count -
+        a.count
+    );
+}
+
+
+/* =====================================================
+   HEATMAP
+   ===================================================== */
+
+function buildHeatmap(
+  events: GoalEvent[],
+  rows = 12,
+  cols = 8
+): HeatCell[] {
+  const counts =
+    Array.from(
+      {
+        length:
+          rows * cols
+      },
+      () => 0
+    );
+
+  let positionedEvents =
+    0;
+
+  events.forEach(
+    event => {
+      const finish =
+        getFinishPoint(
+          event
+        );
+
+      if (
+        !finish
+      ) {
+        return;
+      }
+
+      const screen =
+        databaseToScreen(
+          finish.x,
+          finish.y
+        );
+
+      const safeX =
+        Math.min(
+          99.999,
+          Math.max(
+            0,
+            screen.x
+          )
+        );
+
+      const safeY =
+        Math.min(
+          99.999,
+          Math.max(
+            0,
+            screen.y
+          )
+        );
+
+      const col =
+        Math.floor(
+          (
+            safeX /
+            100
+          ) *
+            cols
+        );
+
+      const row =
+        Math.floor(
+          (
+            safeY /
+            100
+          ) *
+            rows
+        );
+
+      const index =
+        row *
+          cols +
+        col;
+
+      counts[index] +=
+        1;
+
+      positionedEvents +=
+        1;
+    }
+  );
+
+  return counts.map(
+    (
+      count,
+      index
+    ) => ({
+      row:
+        Math.floor(
+          index /
+            cols
+        ),
+
+      col:
+        index %
+        cols,
+
+      count,
+
+      percentage:
+        percentage(
+          count,
+          positionedEvents
+        )
+    })
+  );
+}
+
+
 /* =====================================================
    EVENT PITCH
    ===================================================== */
@@ -234,10 +480,15 @@ function EventPitch({
       <div className="football-pitch analysis-pitch">
 
         <div className="pitch-halfway-line" />
+
         <div className="pitch-center-circle" />
+
         <div className="penalty-area penalty-area-top" />
+
         <div className="penalty-area penalty-area-bottom" />
+
         <div className="goal-area goal-area-top" />
+
         <div className="goal-area goal-area-bottom" />
 
         <svg
@@ -245,6 +496,7 @@ function EventPitch({
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
+
           {events.map(
             (
               event,
@@ -291,6 +543,7 @@ function EventPitch({
               );
             }
           )}
+
         </svg>
 
         {events.map(
@@ -309,7 +562,7 @@ function EventPitch({
               return null;
             }
 
-            const p =
+            const point =
               databaseToScreen(
                 assist.x,
                 assist.y
@@ -321,9 +574,9 @@ function EventPitch({
                 className="analysis-start-point"
                 style={{
                   left:
-                    `${p.x}%`,
+                    `${point.x}%`,
                   top:
-                    `${p.y}%`
+                    `${point.y}%`
                 }}
               />
             );
@@ -346,7 +599,7 @@ function EventPitch({
               return null;
             }
 
-            const p =
+            const point =
               databaseToScreen(
                 finish.x,
                 finish.y
@@ -358,12 +611,13 @@ function EventPitch({
                 className="analysis-end-point"
                 style={{
                   left:
-                    `${p.x}%`,
+                    `${point.x}%`,
                   top:
-                    `${p.y}%`
+                    `${point.y}%`
                 }}
               >
-                {event.minute ?? ""}
+                {event.minute ??
+                  ""}
               </div>
             );
           }
@@ -374,6 +628,208 @@ function EventPitch({
     </div>
   );
 }
+
+
+/* =====================================================
+   FINISH HEATMAP
+   ===================================================== */
+
+function FinishHeatmap({
+  events,
+  title
+}: {
+  events: GoalEvent[];
+  title: string;
+}) {
+  const rows =
+    12;
+
+  const cols =
+    8;
+
+  const cells =
+    useMemo(
+      () =>
+        buildHeatmap(
+          events,
+          rows,
+          cols
+        ),
+      [
+        events
+      ]
+    );
+
+  const maxCount =
+    Math.max(
+      0,
+      ...cells.map(
+        cell =>
+          cell.count
+      )
+    );
+
+  const positionedCount =
+    events.filter(
+      event =>
+        getFinishPoint(
+          event
+        ) != null
+    ).length;
+
+  return (
+    <div className="analysis-pitch-wrapper">
+
+      <h3>
+        {title}
+      </h3>
+
+      <p className="heatmap-info">
+        {positionedCount} von{" "}
+        {events.length} Ereignissen
+        mit Abschlussposition
+      </p>
+
+      <div className="football-pitch analysis-pitch heatmap-pitch">
+
+        <div className="pitch-halfway-line" />
+        <div className="pitch-center-circle" />
+        <div className="penalty-area penalty-area-top" />
+        <div className="penalty-area penalty-area-bottom" />
+        <div className="goal-area goal-area-top" />
+        <div className="goal-area goal-area-bottom" />
+
+        <div
+          className="heatmap-grid"
+          style={{
+            gridTemplateColumns:
+              `repeat(${cols}, 1fr)`,
+
+            gridTemplateRows:
+              `repeat(${rows}, 1fr)`
+          }}
+        >
+
+          {cells.map(
+            cell => {
+              const intensity =
+                maxCount > 0
+                  ? cell.count /
+                    maxCount
+                  : 0;
+
+              return (
+                <div
+                  key={`${cell.row}-${cell.col}`}
+                  className={`heatmap-cell ${
+                    cell.count > 0
+                      ? "heatmap-cell-active"
+                      : ""
+                  }`}
+                  style={{
+                    opacity:
+                      cell.count > 0
+                        ? 0.2 +
+                          intensity *
+                            0.65
+                        : 0
+                  }}
+                  title={
+                    cell.count > 0
+                      ? `${cell.count} Abschlüsse (${cell.percentage} %)`
+                      : ""
+                  }
+                >
+                  {cell.count > 0 && (
+                    <span>
+                      {cell.count}
+                    </span>
+                  )}
+                </div>
+              );
+            }
+          )}
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+/* =====================================================
+   STAT CARD
+   ===================================================== */
+
+function StatCard({
+  title,
+  stats
+}: {
+  title: string;
+  stats: StatItem[];
+}) {
+  return (
+    <div className="card stat-card">
+
+      <h2>
+        {title}
+      </h2>
+
+      {stats.length ===
+        0 ? (
+        <p>
+          Keine Daten vorhanden.
+        </p>
+      ) : (
+        <div className="stat-list">
+
+          {stats.map(
+            item => (
+              <div
+                key={
+                  item.name
+                }
+                className="stat-item"
+              >
+
+                <div className="stat-header">
+
+                  <span>
+                    {item.name}
+                  </span>
+
+                  <strong>
+                    {item.count}{" "}
+                    ({item.percentage}%)
+                  </strong>
+
+                </div>
+
+                <div className="stat-bar-track">
+
+                  <div
+                    className="stat-bar-fill"
+                    style={{
+                      width:
+                        `${item.percentage}%`
+                    }}
+                  />
+
+                </div>
+
+              </div>
+            )
+          )}
+
+        </div>
+      )}
+
+    </div>
+  );
+}
+
 
 /* =====================================================
    APP
@@ -558,6 +1014,13 @@ function App() {
   ] =
     useState(false);
 
+  const [
+    deleteStatus,
+    setDeleteStatus
+  ] =
+    useState("");
+
+
   /* =====================================================
      TOKEN
      ===================================================== */
@@ -577,6 +1040,7 @@ function App() {
 
       return token;
     };
+
 
   /* =====================================================
      INIT
@@ -665,6 +1129,7 @@ function App() {
     void initTeams();
   }, []);
 
+
   /* =====================================================
      MATCHES
      ===================================================== */
@@ -737,6 +1202,7 @@ function App() {
       }
     };
 
+
   /* =====================================================
      TEAM EVENTS
      ===================================================== */
@@ -773,6 +1239,7 @@ function App() {
           !response.ok
         ) {
           console.error(
+            "Team Events:",
             data
           );
 
@@ -793,6 +1260,7 @@ function App() {
       }
     };
 
+
   useEffect(() => {
     if (
       !teamsReady
@@ -805,8 +1273,9 @@ function App() {
     );
   }, [teamsReady]);
 
+
   /* =====================================================
-     EVENTS EINZELSPIEL
+     MATCH EVENTS
      ===================================================== */
 
   const loadEvents =
@@ -823,43 +1292,69 @@ function App() {
         match
       );
 
-      const token =
-        await getTeamsToken();
+      try {
+        const token =
+          await getTeamsToken();
 
-      const response =
-        await fetch(
-          `/api/events?match_id=${encodeURIComponent(
-            String(
-              match.id
-            )
-          )}`,
-          {
-            headers: {
-              Authorization:
-                `Bearer ${token}`
+        const response =
+          await fetch(
+            `/api/events?match_id=${encodeURIComponent(
+              String(
+                match.id
+              )
+            )}`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
             }
-          }
-        );
+          );
 
-      const data =
-        (await response.json()) as EventsResponse;
+        const data =
+          (await response.json()) as EventsResponse;
 
-      if (
-        response.ok
+        if (
+          response.ok
+        ) {
+          setEvents(
+            Array.isArray(
+              data.events
+            )
+              ? data.events
+              : []
+          );
+        }
+      } catch (
+        error
       ) {
-        setEvents(
-          Array.isArray(
-            data.events
-          )
-            ? data.events
-            : []
+        console.error(
+          "Events:",
+          error
         );
       }
     };
 
+
   /* =====================================================
      VIEW
      ===================================================== */
+
+  const openMatches =
+    () => {
+      setViewMode(
+        "matches"
+      );
+
+      setSelectedMatch(
+        null
+      );
+
+      setShowEventForm(
+        false
+      );
+    };
+
 
   const openAnalysis =
     () => {
@@ -880,23 +1375,9 @@ function App() {
       );
     };
 
-  const openMatches =
-    () => {
-      setViewMode(
-        "matches"
-      );
-
-      setSelectedMatch(
-        null
-      );
-
-      setShowEventForm(
-        false
-      );
-    };
 
   /* =====================================================
-     EVENT FORM
+     FORM
      ===================================================== */
 
   const openEventForm =
@@ -912,18 +1393,21 @@ function App() {
       setAssister("");
       setPhase("");
       setCreationType("");
+      setSaveStatus("");
+
       setAssistScreenPoint(
         null
       );
+
       setFinishScreenPoint(
         null
       );
-      setSaveStatus("");
 
       setShowEventForm(
         true
       );
     };
+
 
   const handlePitchClick =
     (
@@ -990,6 +1474,7 @@ function App() {
         null
       );
     };
+
 
   const saveEvent =
     async () => {
@@ -1096,8 +1581,10 @@ function App() {
           !response.ok
         ) {
           setSaveStatus(
-            data.error ??
-              "Speichern fehlgeschlagen"
+            data.details
+              ? `${data.error} – ${data.details}`
+              : data.error ??
+                  "Speichern fehlgeschlagen"
           );
 
           return;
@@ -1110,12 +1597,17 @@ function App() {
         setShowEventForm(
           false
         );
+
+        setSaveStatus(
+          ""
+        );
       } finally {
         setSavingEvent(
           false
         );
       }
     };
+
 
   /* =====================================================
      DELETE
@@ -1132,6 +1624,10 @@ function App() {
 
       setDeletingEvent(
         true
+      );
+
+      setDeleteStatus(
+        "Ereignis wird gelöscht …"
       );
 
       try {
@@ -1163,8 +1659,20 @@ function App() {
             null
           );
 
+          setDeleteStatus(
+            ""
+          );
+
           await loadEvents(
             selectedMatch
+          );
+        } else {
+          const data =
+            (await response.json()) as EventsResponse;
+
+          setDeleteStatus(
+            data.error ??
+              "Löschen fehlgeschlagen"
           );
         }
       } finally {
@@ -1174,8 +1682,9 @@ function App() {
       }
     };
 
+
   /* =====================================================
-     ANALYSIS DATA
+     ANALYSIS
      ===================================================== */
 
   const teamGoals =
@@ -1204,99 +1713,65 @@ function App() {
       ]
     );
 
-  const phaseStats =
+
+  const goalPhaseStats =
     useMemo(
-      () => {
-        const map =
-          new Map<
-            string,
-            number
-          >();
-
-        teamEvents.forEach(
-          event => {
-            const key =
-              event.phase ||
-              "Nicht angegeben";
-
-            map.set(
-              key,
-              (
-                map.get(
-                  key
-                ) ||
-                0
-              ) +
-                1
-            );
-          }
-        );
-
-        return Array.from(
-          map.entries()
-        ).sort(
-          (
-            a,
-            b
-          ) =>
-            b[1] -
-            a[1]
-        );
-      },
+      () =>
+        createStats(
+          teamGoals,
+          "phase"
+        ),
       [
-        teamEvents
+        teamGoals
       ]
     );
 
-  const creationStats =
+
+  const concededPhaseStats =
     useMemo(
-      () => {
-        const map =
-          new Map<
-            string,
-            number
-          >();
-
-        teamEvents.forEach(
-          event => {
-            const key =
-              event.creation_type ||
-              "Nicht angegeben";
-
-            map.set(
-              key,
-              (
-                map.get(
-                  key
-                ) ||
-                0
-              ) +
-                1
-            );
-          }
-        );
-
-        return Array.from(
-          map.entries()
-        ).sort(
-          (
-            a,
-            b
-          ) =>
-            b[1] -
-            a[1]
-        );
-      },
+      () =>
+        createStats(
+          teamConceded,
+          "phase"
+        ),
       [
-        teamEvents
+        teamConceded
       ]
     );
+
+
+  const goalCreationStats =
+    useMemo(
+      () =>
+        createStats(
+          teamGoals,
+          "creation_type"
+        ),
+      [
+        teamGoals
+      ]
+    );
+
+
+  const concededCreationStats =
+    useMemo(
+      () =>
+        createStats(
+          teamConceded,
+          "creation_type"
+        ),
+      [
+        teamConceded
+      ]
+    );
+
 
   const minuteBuckets =
     useMemo(
       () => {
         const buckets =
-          selectedTeam === "U15"
+          selectedTeam ===
+            "U15"
             ? [
                 {
                   label:
@@ -1422,8 +1897,22 @@ function App() {
 
             return {
               ...bucket,
+
               goals,
-              conceded
+
+              goalPercentage:
+                percentage(
+                  goals,
+                  teamGoals.length
+                ),
+
+              conceded,
+
+              concededPercentage:
+                percentage(
+                  conceded,
+                  teamConceded.length
+                )
             };
           }
         );
@@ -1435,8 +1924,9 @@ function App() {
       ]
     );
 
+
   /* =====================================================
-     HELPERS
+     MATCH HELPERS
      ===================================================== */
 
   const getMatchTitle =
@@ -1448,6 +1938,70 @@ function App() {
         ? match.opponent
         : "Unbekannter Gegner";
 
+
+  const getMatchDate =
+    (
+      match: MatchItem
+    ) => {
+      const raw =
+        typeof match.date ===
+        "string"
+          ? match.date
+          : typeof match.match_date ===
+              "string"
+            ? match.match_date
+            : "";
+
+      if (
+        !raw
+      ) {
+        return "";
+      }
+
+      const date =
+        new Date(
+          raw
+        );
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return raw;
+      }
+
+      return new Intl.DateTimeFormat(
+        "de-DE",
+        {
+          day:
+            "2-digit",
+
+          month:
+            "2-digit",
+
+          year:
+            "numeric"
+        }
+      ).format(
+        date
+      );
+    };
+
+
+  const getCompetition =
+    (
+      match: MatchItem
+    ) =>
+      typeof match.competition ===
+        "string"
+        ? match.competition
+        : typeof match.competition_type ===
+            "string"
+          ? match.competition_type
+          : "";
+
+
   const goals =
     events.filter(
       event =>
@@ -1455,12 +2009,85 @@ function App() {
         "Tor"
     );
 
+
   const concededGoals =
     events.filter(
       event =>
         event.event_type ===
         "Gegentor"
     );
+
+
+  /* =====================================================
+     EVENT LIST
+     ===================================================== */
+
+  const renderEvent =
+    (
+      event: GoalEvent
+    ) => (
+      <div
+        key={
+          String(
+            event.id
+          )
+        }
+        className="event-entry"
+      >
+
+        <strong>
+          {event.minute != null
+            ? `${event.minute}. Minute`
+            : "Minute unbekannt"}
+        </strong>
+
+        {event.scorer && (
+          <p>
+            Torschütze:{" "}
+            {event.scorer}
+          </p>
+        )}
+
+        {event.assister && (
+          <p>
+            Assist:{" "}
+            {event.assister}
+          </p>
+        )}
+
+        {event.phase && (
+          <p>
+            Phase:{" "}
+            {event.phase}
+          </p>
+        )}
+
+        {event.creation_type && (
+          <p>
+            Entstehung:{" "}
+            {event.creation_type}
+          </p>
+        )}
+
+        <button
+          className="delete-event-button"
+
+          onClick={() => {
+            setEventToDelete(
+              event
+            );
+
+            setDeleteStatus(
+              ""
+            );
+          }}
+        >
+          Löschen
+        </button>
+
+      </div>
+    );
+
 
   /* =====================================================
      UI
@@ -1502,6 +2129,9 @@ function App() {
           {tokenStatus}
         </p>
 
+
+        {/* TEAM AUSWAHL */}
+
         <div className="cards">
 
           {TEAMS.map(
@@ -1527,8 +2157,20 @@ function App() {
                     null
                   );
 
+                  setEvents([]);
+
+                  setTeamEvents([]);
+
                   setViewMode(
                     "matches"
+                  );
+
+                  setShowEventForm(
+                    false
+                  );
+
+                  setEventToDelete(
+                    null
                   );
 
                   void loadMatches(
@@ -1536,6 +2178,7 @@ function App() {
                   );
                 }}
               >
+
                 <h3>
                   {team}
                 </h3>
@@ -1543,15 +2186,26 @@ function App() {
                 <p>
                   Goals &amp; Analysis
                 </p>
+
               </div>
             )
           )}
 
         </div>
 
-        <div className="event-actions">
+
+        {/* NAVIGATION */}
+
+        <div className="view-switcher">
 
           <button
+            className={
+              viewMode ===
+              "matches"
+                ? "view-button-active"
+                : ""
+            }
+
             onClick={
               openMatches
             }
@@ -1560,6 +2214,13 @@ function App() {
           </button>
 
           <button
+            className={
+              viewMode ===
+              "analysis"
+                ? "view-button-active"
+                : ""
+            }
+
             onClick={
               openAnalysis
             }
@@ -1569,55 +2230,90 @@ function App() {
 
         </div>
 
+
+        {/* =================================================
+            TEAM AUSWERTUNG
+            ================================================= */}
+
         {viewMode ===
           "analysis" ? (
 
-          <section>
+          <section className="team-analysis-section">
 
             <h2>
               {selectedTeam} – Team-Auswertung
             </h2>
 
             {loadingTeamEvents ? (
+
               <p>
                 Auswertung wird geladen …
               </p>
+
             ) : (
               <>
 
-                <div className="cards">
+                {/* KPI */}
 
-                  <div className="card">
-                    <h3>
+                <div className="analysis-kpis">
+
+                  <div className="kpi-card">
+
+                    <span>
                       Tore
-                    </h3>
+                    </span>
 
                     <strong>
                       {teamGoals.length}
                     </strong>
+
                   </div>
 
-                  <div className="card">
-                    <h3>
+                  <div className="kpi-card">
+
+                    <span>
                       Gegentore
-                    </h3>
+                    </span>
 
                     <strong>
                       {teamConceded.length}
                     </strong>
+
                   </div>
 
-                  <div className="card">
-                    <h3>
-                      Ereignisse
-                    </h3>
+                  <div className="kpi-card">
+
+                    <span>
+                      Tordifferenz
+                    </span>
 
                     <strong>
-                      {teamEvents.length}
+                      {teamGoals.length -
+                        teamConceded.length}
                     </strong>
+
+                  </div>
+
+                  <div className="kpi-card">
+
+                    <span>
+                      Spiele
+                    </span>
+
+                    <strong>
+                      {matches.length}
+                    </strong>
+
                   </div>
 
                 </div>
+
+
+                {/* ALLE EVENTS */}
+
+                <h2 className="analysis-heading">
+                  Positionsdaten
+                </h2>
 
                 <div className="analysis-grid">
 
@@ -1625,6 +2321,7 @@ function App() {
                     events={
                       teamGoals
                     }
+
                     title={`Alle Tore (${teamGoals.length})`}
                   />
 
@@ -1632,105 +2329,145 @@ function App() {
                     events={
                       teamConceded
                     }
+
                     title={`Alle Gegentore (${teamConceded.length})`}
                   />
 
                 </div>
 
-                <div className="events-grid">
 
-                  <div className="card">
+                {/* HEATMAP */}
 
-                    <h2>
-                      Spielphasen
-                    </h2>
+                <h2 className="analysis-heading">
+                  Abschluss-Heatmap
+                </h2>
 
-                    {phaseStats.map(
-                      (
-                        [
-                          name,
-                          count
-                        ]
-                      ) => (
-                        <p
-                          key={
-                            name
-                          }
-                        >
-                          <strong>
-                            {name}:
-                          </strong>{" "}
-                          {count}
-                        </p>
-                      )
-                    )}
+                <div className="analysis-grid">
 
-                  </div>
+                  <FinishHeatmap
+                    events={
+                      teamGoals
+                    }
 
-                  <div className="card">
+                    title="Tore – Abschlusspositionen"
+                  />
 
-                    <h2>
-                      Entstehung
-                    </h2>
+                  <FinishHeatmap
+                    events={
+                      teamConceded
+                    }
 
-                    {creationStats.map(
-                      (
-                        [
-                          name,
-                          count
-                        ]
-                      ) => (
-                        <p
-                          key={
-                            name
-                          }
-                        >
-                          <strong>
-                            {name}:
-                          </strong>{" "}
-                          {count}
-                        </p>
-                      )
-                    )}
-
-                  </div>
+                    title="Gegentore – Abschlusspositionen"
+                  />
 
                 </div>
 
-                <div className="card">
 
-                  <h2>
-                    Tore nach Spielminute
-                  </h2>
+                {/* PHASEN */}
 
-                  <div className="minute-table">
+                <h2 className="analysis-heading">
+                  Spielphasen
+                </h2>
 
-                    {minuteBuckets.map(
-                      bucket => (
-                        <div
-                          key={
-                            bucket.label
-                          }
-                          className="minute-row"
-                        >
-                          <strong>
-                            {bucket.label}
-                          </strong>
+                <div className="events-grid">
 
-                          <span>
-                            Tore:{" "}
-                            {bucket.goals}
-                          </span>
+                  <StatCard
+                    title="Tore nach Phase"
+                    stats={
+                      goalPhaseStats
+                    }
+                  />
 
-                          <span>
-                            Gegentore:{" "}
-                            {bucket.conceded}
-                          </span>
-                        </div>
-                      )
-                    )}
+                  <StatCard
+                    title="Gegentore nach Phase"
+                    stats={
+                      concededPhaseStats
+                    }
+                  />
+
+                </div>
+
+
+                {/* ENTSTEHUNG */}
+
+                <h2 className="analysis-heading">
+                  Entstehungsarten
+                </h2>
+
+                <div className="events-grid">
+
+                  <StatCard
+                    title="Tore – Entstehung"
+                    stats={
+                      goalCreationStats
+                    }
+                  />
+
+                  <StatCard
+                    title="Gegentore – Entstehung"
+                    stats={
+                      concededCreationStats
+                    }
+                  />
+
+                </div>
+
+
+                {/* SPIELMINUTEN */}
+
+                <h2 className="analysis-heading">
+                  Tore nach Spielminute
+                </h2>
+
+                <div className="card minute-analysis-card">
+
+                  <div className="minute-table minute-table-header">
+
+                    <strong>
+                      Zeitraum
+                    </strong>
+
+                    <strong>
+                      Tore
+                    </strong>
+
+                    <strong>
+                      Gegentore
+                    </strong>
 
                   </div>
+
+                  {minuteBuckets.map(
+                    bucket => (
+
+                      <div
+                        key={
+                          bucket.label
+                        }
+
+                        className="minute-table minute-row"
+                      >
+
+                        <strong>
+                          {bucket.label}
+                        </strong>
+
+                        <span>
+                          {bucket.goals}
+                          {" "}
+                          ({bucket.goalPercentage}%)
+                        </span>
+
+                        <span>
+                          {bucket.conceded}
+                          {" "}
+                          ({bucket.concededPercentage}%)
+                        </span>
+
+                      </div>
+
+                    )
+                  )}
 
                 </div>
 
@@ -1741,14 +2478,28 @@ function App() {
 
         ) : selectedMatch ? (
 
-          <section>
+          /* =================================================
+             EINZELSPIEL
+             ================================================= */
+
+          <section className="match-detail">
 
             <button
-              onClick={() =>
+              onClick={() => {
                 setSelectedMatch(
                   null
-                )
-              }
+                );
+
+                setEvents([]);
+
+                setShowEventForm(
+                  false
+                );
+
+                setEventToDelete(
+                  null
+                );
+              }}
             >
               ← Zurück zu den Spielen
             </button>
@@ -1760,6 +2511,23 @@ function App() {
                 selectedMatch
               )}
             </h2>
+
+            <p>
+              {getMatchDate(
+                selectedMatch
+              )}
+            </p>
+
+            {getCompetition(
+              selectedMatch
+            ) && (
+              <p>
+                {getCompetition(
+                  selectedMatch
+                )}
+              </p>
+            )}
+
 
             <div className="event-actions">
 
@@ -1785,13 +2553,25 @@ function App() {
 
             </div>
 
+
+            {/* DELETE */}
+
             {eventToDelete && (
 
               <div className="delete-confirm-box">
 
                 <strong>
-                  Ereignis löschen?
+                  {eventToDelete.event_type ===
+                  "Gegentor"
+                    ? "Gegentor löschen?"
+                    : "Tor löschen?"}
                 </strong>
+
+                <p>
+                  {eventToDelete.minute != null
+                    ? `${eventToDelete.minute}. Minute`
+                    : "Minute unbekannt"}
+                </p>
 
                 <div className="form-actions">
 
@@ -1799,142 +2579,197 @@ function App() {
                     onClick={() =>
                       void executeDeleteEvent()
                     }
+
                     disabled={
                       deletingEvent
                     }
                   >
-                    Ja, löschen
+                    {deletingEvent
+                      ? "Wird gelöscht …"
+                      : "Ja, löschen"}
                   </button>
 
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setEventToDelete(
                         null
-                      )
-                    }
+                      );
+
+                      setDeleteStatus(
+                        ""
+                      );
+                    }}
                   >
                     Abbrechen
                   </button>
 
                 </div>
 
+                {deleteStatus && (
+                  <p className="status">
+                    {deleteStatus}
+                  </p>
+                )}
+
               </div>
 
             )}
+
+
+            {/* FORM */}
 
             {showEventForm && (
 
               <div className="card event-form-card">
 
-                <h3>
+                <h2>
                   {eventType} erfassen
-                </h3>
+                </h2>
 
                 <div className="event-form">
 
-                  <input
-                    type="number"
-                    placeholder="Minute"
-                    value={
-                      minute
-                    }
-                    onChange={
-                      event =>
-                        setMinute(
-                          event.target.value
-                        )
-                    }
-                  />
+                  <label>
+                    Minute
+
+                    <input
+                      type="number"
+                      min="0"
+                      max="130"
+                      value={
+                        minute
+                      }
+                      onChange={
+                        event =>
+                          setMinute(
+                            event.target.value
+                          )
+                      }
+                    />
+                  </label>
+
 
                   {eventType ===
                     "Tor" && (
                     <>
-                      <input
-                        placeholder="Torschütze"
-                        value={
-                          scorer
-                        }
-                        onChange={
-                          event =>
-                            setScorer(
-                              event.target.value
-                            )
-                        }
-                      />
 
-                      <input
-                        placeholder="Assist"
-                        value={
-                          assister
-                        }
-                        onChange={
-                          event =>
-                            setAssister(
-                              event.target.value
-                            )
-                        }
-                      />
+                      <label>
+                        Torschütze
+
+                        <input
+                          value={
+                            scorer
+                          }
+                          onChange={
+                            event =>
+                              setScorer(
+                                event.target.value
+                              )
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        Assist
+
+                        <input
+                          value={
+                            assister
+                          }
+                          onChange={
+                            event =>
+                              setAssister(
+                                event.target.value
+                              )
+                          }
+                        />
+                      </label>
+
                     </>
                   )}
 
-                  <select
-                    value={
-                      phase
-                    }
-                    onChange={
-                      event =>
-                        setPhase(
-                          event.target.value
-                        )
-                    }
-                  >
-                    {PHASES.map(
-                      item => (
-                        <option
-                          key={
-                            item
-                          }
-                          value={
-                            item
-                          }
-                        >
-                          {item ||
-                            "Phase"}
-                        </option>
-                      )
-                    )}
-                  </select>
 
-                  <select
-                    value={
-                      creationType
-                    }
-                    onChange={
-                      event =>
-                        setCreationType(
-                          event.target.value
+                  <label>
+                    Phase
+
+                    <select
+                      value={
+                        phase
+                      }
+                      onChange={
+                        event =>
+                          setPhase(
+                            event.target.value
+                          )
+                      }
+                    >
+
+                      {PHASES.map(
+                        item => (
+                          <option
+                            key={
+                              item
+                            }
+                            value={
+                              item
+                            }
+                          >
+                            {item ||
+                              "Bitte auswählen"}
+                          </option>
                         )
-                    }
-                  >
-                    {CREATION_TYPES.map(
-                      item => (
-                        <option
-                          key={
-                            item
-                          }
-                          value={
-                            item
-                          }
-                        >
-                          {item ||
-                            "Entstehung"}
-                        </option>
-                      )
-                    )}
-                  </select>
+                      )}
+
+                    </select>
+                  </label>
+
+
+                  <label>
+                    Entstehung
+
+                    <select
+                      value={
+                        creationType
+                      }
+                      onChange={
+                        event =>
+                          setCreationType(
+                            event.target.value
+                          )
+                      }
+                    >
+
+                      {CREATION_TYPES.map(
+                        item => (
+                          <option
+                            key={
+                              item
+                            }
+                            value={
+                              item
+                            }
+                          >
+                            {item ||
+                              "Bitte auswählen"}
+                          </option>
+                        )
+                      )}
+
+                    </select>
+                  </label>
+
+
+                  <p className="pitch-help">
+                    {!assistScreenPoint
+                      ? "1. Klick: Assist / Entstehung"
+                      : !finishScreenPoint
+                        ? "2. Klick: Abschluss"
+                        : "Beide Positionen gesetzt"}
+                  </p>
+
 
                   <div
                     className="football-pitch"
+
                     onClick={
                       handlePitchClick
                     }
@@ -1947,9 +2782,11 @@ function App() {
                     <div className="goal-area goal-area-top" />
                     <div className="goal-area goal-area-bottom" />
 
+
                     {assistScreenPoint && (
                       <div
                         className="pitch-point assist-point"
+
                         style={{
                           left:
                             `${assistScreenPoint.x}%`,
@@ -1961,9 +2798,11 @@ function App() {
                       </div>
                     )}
 
+
                     {finishScreenPoint && (
                       <div
                         className="pitch-point finish-point"
+
                         style={{
                           left:
                             `${finishScreenPoint.x}%`,
@@ -1975,30 +2814,94 @@ function App() {
                       </div>
                     )}
 
+
+                    {assistScreenPoint &&
+                      finishScreenPoint && (
+
+                      <svg
+                        className="pitch-line-layer"
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                      >
+                        <line
+                          x1={
+                            assistScreenPoint.x
+                          }
+                          y1={
+                            assistScreenPoint.y
+                          }
+                          x2={
+                            finishScreenPoint.x
+                          }
+                          y2={
+                            finishScreenPoint.y
+                          }
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      </svg>
+
+                    )}
+
                   </div>
+
+                  <button
+                    type="button"
+
+                    onClick={() => {
+                      setAssistScreenPoint(
+                        null
+                      );
+
+                      setFinishScreenPoint(
+                        null
+                      );
+                    }}
+                  >
+                    Positionen löschen
+                  </button>
 
                 </div>
 
+
                 {saveStatus && (
-                  <p>
+                  <p className="status">
                     {saveStatus}
                   </p>
                 )}
 
-                <button
-                  onClick={() =>
-                    void saveEvent()
-                  }
-                  disabled={
-                    savingEvent
-                  }
-                >
-                  Speichern
-                </button>
+
+                <div className="form-actions">
+
+                  <button
+                    onClick={() =>
+                      void saveEvent()
+                    }
+
+                    disabled={
+                      savingEvent
+                    }
+                  >
+                    {savingEvent
+                      ? "Speichern …"
+                      : "Speichern"}
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setShowEventForm(
+                        false
+                      )
+                    }
+                  >
+                    Abbrechen
+                  </button>
+
+                </div>
 
               </div>
 
             )}
+
 
             <div className="analysis-grid">
 
@@ -2018,46 +2921,132 @@ function App() {
 
             </div>
 
+
+            <div className="events-grid">
+
+              <div className="card">
+
+                <h2>
+                  Tore ({goals.length})
+                </h2>
+
+                {goals.length === 0
+                  ? (
+                    <p>
+                      Keine Tore erfasst.
+                    </p>
+                  )
+                  : goals.map(
+                      renderEvent
+                    )}
+
+              </div>
+
+              <div className="card">
+
+                <h2>
+                  Gegentore ({concededGoals.length})
+                </h2>
+
+                {concededGoals.length === 0
+                  ? (
+                    <p>
+                      Keine Gegentore erfasst.
+                    </p>
+                  )
+                  : concededGoals.map(
+                      renderEvent
+                    )}
+
+              </div>
+
+            </div>
+
           </section>
 
         ) : (
 
-          <section>
+          /* =================================================
+             SPIELLISTE
+             ================================================= */
+
+          <section className="matches-section">
 
             <h2>
               {selectedTeam} Spiele
             </h2>
 
-            <p>
+            <p className="status">
               {matchesStatus}
             </p>
 
-            {!loadingMatches &&
+            {loadingMatches ? (
+
+              <p>
+                Daten werden geladen …
+              </p>
+
+            ) : (
+
               matches.map(
                 (
                   match,
                   index
                 ) => (
+
                   <div
                     key={String(
                       match.id ??
                         index
                     )}
+
                     className="card match-card"
+
                     onClick={() =>
                       void loadEvents(
                         match
                       )
                     }
                   >
+
                     <h3>
                       {getMatchTitle(
                         match
                       )}
                     </h3>
+
+                    <p>
+                      <strong>
+                        Datum:
+                      </strong>{" "}
+                      {getMatchDate(
+                        match
+                      )}
+                    </p>
+
+                    {getCompetition(
+                      match
+                    ) && (
+                      <p>
+                        <strong>
+                          Bewerb:
+                        </strong>{" "}
+                        {getCompetition(
+                          match
+                        )}
+                      </p>
+                    )}
+
+                    <p>
+                      Öffnen →
+                    </p>
+
                   </div>
+
                 )
-              )}
+              )
+
+            )}
 
           </section>
 
