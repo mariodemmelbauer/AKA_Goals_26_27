@@ -280,35 +280,25 @@ async function handleMe(
 }
 
 /* =========================================================
-   MATCHES
+   MATCH TYPES
    ========================================================= */
 
-async function handleMatches(
+type CreateMatchBody = {
+  team?: string;
+  match_date?: string;
+  opponent?: string;
+  competition?: string | null;
+  home_away?: string | null;
+};
+
+/* =========================================================
+   GET MATCHES
+   ========================================================= */
+
+async function getMatches(
   request: Request,
   env: Env
 ): Promise<Response> {
-  const authError =
-    await requireAuth(
-      request
-    );
-
-  if (
-    authError
-  ) {
-    return authError;
-  }
-
-  const envError =
-    checkSupabaseEnv(
-      env
-    );
-
-  if (
-    envError
-  ) {
-    return envError;
-  }
-
   const url =
     new URL(
       request.url
@@ -330,6 +320,13 @@ async function handleMatches(
         team
       )}`;
   }
+
+  /*
+   * match_date existiert sicher und kann
+   * deshalb jetzt zum Sortieren verwendet werden.
+   */
+  query +=
+    "&order=match_date.asc";
 
   const response =
     await supabaseRequest(
@@ -366,6 +363,384 @@ async function handleMatches(
 
     matches
   });
+}
+
+/* =========================================================
+   CREATE MATCH
+   ========================================================= */
+
+async function createMatch(
+  request: Request,
+  env: Env,
+  user: JWTPayload
+): Promise<Response> {
+  let body:
+    CreateMatchBody;
+
+  try {
+    body =
+      (await request.json()) as CreateMatchBody;
+  } catch {
+    return Response.json(
+      {
+        error:
+          "Ungültiger JSON Body"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  const team =
+    body.team?.trim();
+
+  const matchDate =
+    body.match_date?.trim();
+
+  const opponent =
+    body.opponent?.trim();
+
+  if (
+    !team
+  ) {
+    return Response.json(
+      {
+        error:
+          "Team fehlt"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  if (
+    !matchDate
+  ) {
+    return Response.json(
+      {
+        error:
+          "Datum fehlt"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  if (
+    !opponent
+  ) {
+    return Response.json(
+      {
+        error:
+          "Gegner fehlt"
+      },
+      {
+        status: 400
+      }
+    );
+  }
+
+  const createdBy =
+    typeof user.preferred_username ===
+      "string"
+      ? user.preferred_username
+      : typeof user.upn ===
+          "string"
+        ? user.upn
+        : typeof user.name ===
+            "string"
+          ? user.name
+          : null;
+
+  const match = {
+    team,
+
+    match_date:
+      matchDate,
+
+    opponent,
+
+    competition:
+      body.competition?.trim() ||
+      null,
+
+    home_away:
+      body.home_away?.trim() ||
+      null,
+
+    created_by:
+      createdBy
+  };
+
+  const response =
+    await supabaseRequest(
+      env,
+      "matches",
+      {
+        method:
+          "POST",
+
+        headers: {
+          Prefer:
+            "return=representation"
+        },
+
+        body:
+          JSON.stringify(
+            match
+          )
+      }
+    );
+
+  if (
+    !response.ok
+  ) {
+    const details =
+      await response.text();
+
+    return Response.json(
+      {
+        error:
+          "Spiel konnte nicht angelegt werden",
+
+        details
+      },
+      {
+        status:
+          response.status
+      }
+    );
+  }
+
+  const created =
+    await response.json();
+
+  return Response.json(
+    {
+      success:
+        true,
+
+      match:
+        Array.isArray(
+          created
+        )
+          ? created[0]
+          : created
+    },
+    {
+      status:
+        201
+    }
+  );
+}
+
+/* =========================================================
+   DELETE MATCH
+   ========================================================= */
+
+async function deleteMatch(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url =
+    new URL(
+      request.url
+    );
+
+  const matchId =
+    url.searchParams.get(
+      "id"
+    );
+
+  if (
+    !matchId
+  ) {
+    return Response.json(
+      {
+        error:
+          "Spiel-ID fehlt"
+      },
+      {
+        status:
+          400
+      }
+    );
+  }
+
+  /*
+   * Supabase FK:
+   * goal_events.match_id -> matches.id
+   * ON DELETE CASCADE
+   *
+   * Dadurch werden alle goal_events
+   * automatisch mitgelöscht.
+   */
+
+  const response =
+    await supabaseRequest(
+      env,
+
+      `matches?id=eq.${encodeURIComponent(
+        matchId
+      )}`,
+
+      {
+        method:
+          "DELETE",
+
+        headers: {
+          Prefer:
+            "return=representation"
+        }
+      }
+    );
+
+  if (
+    !response.ok
+  ) {
+    const details =
+      await response.text();
+
+    return Response.json(
+      {
+        error:
+          "Spiel konnte nicht gelöscht werden",
+
+        details
+      },
+      {
+        status:
+          response.status
+      }
+    );
+  }
+
+  const deleted =
+    await response.json();
+
+  if (
+    !Array.isArray(
+      deleted
+    ) ||
+    deleted.length ===
+      0
+  ) {
+    return Response.json(
+      {
+        error:
+          "Spiel wurde nicht gefunden"
+      },
+      {
+        status: 404
+      }
+    );
+  }
+
+  return Response.json({
+    success:
+      true,
+
+    deletedId:
+      matchId
+  });
+}
+
+/* =========================================================
+   MATCHES ROUTE
+   ========================================================= */
+
+async function handleMatches(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  let user:
+    JWTPayload;
+
+  try {
+    user =
+      await validateTeamsToken(
+        request
+      );
+  } catch (
+    error
+  ) {
+    console.error(
+      "Matches auth error:",
+      error
+    );
+
+    return Response.json(
+      {
+        error:
+          "Teams authentication failed"
+      },
+      {
+        status:
+          401
+      }
+    );
+  }
+
+  const envError =
+    checkSupabaseEnv(
+      env
+    );
+
+  if (
+    envError
+  ) {
+    return envError;
+  }
+
+  if (
+    request.method ===
+    "GET"
+  ) {
+    return getMatches(
+      request,
+      env
+    );
+  }
+
+  if (
+    request.method ===
+    "POST"
+  ) {
+    return createMatch(
+      request,
+      env,
+      user
+    );
+  }
+
+  if (
+    request.method ===
+    "DELETE"
+  ) {
+    return deleteMatch(
+      request,
+      env
+    );
+  }
+
+  return Response.json(
+    {
+      error:
+        "Method not allowed"
+    },
+    {
+      status:
+        405,
+
+      headers: {
+        Allow:
+          "GET, POST, DELETE"
+      }
+    }
+  );
 }
 
 /* =========================================================
@@ -417,7 +792,8 @@ async function handleTeamEvents(
           "team fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -522,7 +898,8 @@ async function getEvents(
           "match_id fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -584,7 +961,8 @@ async function createEvent(
           "Ungültiger JSON Body"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -599,7 +977,8 @@ async function createEvent(
           "match_id fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -614,7 +993,8 @@ async function createEvent(
           "team fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -631,7 +1011,8 @@ async function createEvent(
           "event_type muss Tor oder Gegentor sein"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -759,7 +1140,8 @@ async function createEvent(
           : created
     },
     {
-      status: 201
+      status:
+        201
     }
   );
 }
@@ -787,7 +1169,8 @@ async function deleteEvent(
           "Event-ID fehlt"
       },
       {
-        status: 400
+        status:
+          400
       }
     );
   }
@@ -902,7 +1285,8 @@ async function handleEvents(
         "Method not allowed"
     },
     {
-      status: 405,
+      status:
+        405,
 
       headers: {
         Allow:

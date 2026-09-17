@@ -43,12 +43,20 @@ type MeResponse = {
 
 type MatchItem = {
   id?: number | string;
+
   team?: string;
-  opponent?: string;
-  date?: string;
+
   match_date?: string;
-  competition?: string;
-  competition_type?: string;
+
+  opponent?: string;
+
+  competition?: string | null;
+
+  home_away?: string | null;
+
+  created_by?: string | null;
+
+  created_at?: string | null;
 
   [key: string]: unknown;
 };
@@ -60,19 +68,31 @@ type MatchesResponse = {
   details?: string;
 };
 
+type MatchApiResponse = {
+  success?: boolean;
+  match?: MatchItem;
+  deletedId?: number | string;
+  error?: string;
+  details?: string;
+};
+
 type GoalEvent = {
   id?: number | string;
+
   match_id?: number | string;
 
   team?: string;
+
   event_type?: string;
 
   minute?: number | null;
 
   scorer?: string | null;
+
   assister?: string | null;
 
   phase?: string | null;
+
   creation_type?: string | null;
 
   assist_x?: number | null;
@@ -95,10 +115,15 @@ type GoalEvent = {
 
 type EventsResponse = {
   success?: boolean;
+
   events?: GoalEvent[];
+
   event?: GoalEvent;
+
   error?: string;
+
   details?: string;
+
   deletedId?: number | string;
 };
 
@@ -131,6 +156,7 @@ const TEAMS: TeamName[] = [
   "Profis"
 ];
 
+
 const PHASES = [
   "",
   "Kontrollierter Spielaufbau",
@@ -139,6 +165,7 @@ const PHASES = [
   "Standard",
   "Sonstiges"
 ];
+
 
 const CREATION_TYPES = [
   "",
@@ -152,12 +179,14 @@ const CREATION_TYPES = [
   "Sonstiges"
 ];
 
+
 const FINISH_TOUCHES = [
   "",
   "One Touch",
   "Two Touches",
   ">2 Touches"
 ];
+
 
 const SET_PIECE_TYPES = [
   "",
@@ -257,35 +286,18 @@ function getFinishPoint(
    ZONENLOGIK
    ===================================================== */
 
-/*
- * Feld:
- * Länge 105 m
- * Breite 68 m
- *
- * 16,5-m-Strafraum:
- * 16,5 / 105 = 15,714 %
- *
- * Angriffstor liegt bei x = 100.
- *
- * Beginn Strafraum:
- * 100 - 15,714 = 84,286
- *
- * Strafraumbreite:
- * 40,32 m von 68 m.
- *
- * Linke Grenze:
- * (68 - 40,32) / 2 / 68 * 100
- * ≈ 20,35
- *
- * Rechte Grenze:
- * ≈ 79,65
- */
-
 const FIRST_THIRD =
   100 / 3;
 
+
 const SECOND_THIRD =
   (100 / 3) * 2;
+
+
+/*
+ * Angriffstor = x 100.
+ * Strafraumtiefe = 16,5 m bei 105 m Feldlänge.
+ */
 
 const PENALTY_BOX_X =
   100 -
@@ -294,6 +306,12 @@ const PENALTY_BOX_X =
     105
   ) *
     100;
+
+
+/*
+ * Strafraumbreite 40,32 m
+ * bei 68 m Feldbreite.
+ */
 
 const PENALTY_BOX_Y_MIN =
   (
@@ -306,39 +324,19 @@ const PENALTY_BOX_Y_MIN =
   ) *
   100;
 
+
 const PENALTY_BOX_Y_MAX =
   100 -
   PENALTY_BOX_Y_MIN;
 
 
-/*
- * Box wird für die Analyse noch einmal
- * in links / zentral / rechts unterteilt.
- *
- * Die Grenzen 45 / 55 entsprechen
- * den vorhandenen Daten sehr gut:
- *
- * y 38–42  => Box links
- * y 46–50  => Box zentral
- * y 67     => Box rechts
- */
-
 const BOX_LEFT_END =
   45;
+
 
 const BOX_CENTER_END =
   55;
 
-
-/*
- * Allgemeine fünf vertikale Korridore:
- *
- * 0–20   linker Flügel
- * 20–40  linker Halbraum
- * 40–60  Zentrum
- * 60–80  rechter Halbraum
- * 80–100 rechter Flügel
- */
 
 function getHorizontalLane(
   y: number
@@ -395,7 +393,7 @@ function calculateZone(
 
 
   /* ===================================================
-     BOX AM GEGNERISCHEN TOR
+     GEGNERISCHER STRAFRAUM
      =================================================== */
 
   const insideAttackingBox =
@@ -405,6 +403,7 @@ function calculateZone(
       PENALTY_BOX_Y_MIN &&
     safeY <=
       PENALTY_BOX_Y_MAX;
+
 
   if (
     insideAttackingBox
@@ -441,6 +440,7 @@ function calculateZone(
     safeY <=
       60;
 
+
   if (
     insideZone14
   ) {
@@ -457,12 +457,14 @@ function calculateZone(
       safeY
     );
 
+
   if (
     safeX <
     FIRST_THIRD
   ) {
     return `Aufbaudrittel – ${lane}`;
   }
+
 
   if (
     safeX <
@@ -471,12 +473,13 @@ function calculateZone(
     return `Mitteldrittel – ${lane}`;
   }
 
+
   return `Angriffsdrittel – ${lane}`;
 }
 
 
 /* =====================================================
-   STATS
+   STATISTIK
    ===================================================== */
 
 function percentage(
@@ -504,13 +507,17 @@ function createStats(
   getValue:
     (
       event: GoalEvent
-    ) => string | null | undefined
+    ) =>
+      string |
+      null |
+      undefined
 ): StatItem[] {
   const map =
     new Map<
       string,
       number
     >();
+
 
   events.forEach(
     event => {
@@ -526,6 +533,7 @@ function createStats(
           ? raw.trim()
           : "Nicht angegeben";
 
+
       map.set(
         key,
         (
@@ -538,6 +546,7 @@ function createStats(
       );
     }
   );
+
 
   return Array.from(
     map.entries()
@@ -572,7 +581,7 @@ function createStats(
 
 
 /* =====================================================
-   EVENT PITCH
+   SPIELFELD
    ===================================================== */
 
 function EventPitch({
@@ -589,14 +598,21 @@ function EventPitch({
         {title}
       </h3>
 
+
       <div className="football-pitch analysis-pitch">
 
         <div className="pitch-halfway-line" />
+
         <div className="pitch-center-circle" />
+
         <div className="penalty-area penalty-area-top" />
+
         <div className="penalty-area penalty-area-bottom" />
+
         <div className="goal-area goal-area-top" />
+
         <div className="goal-area goal-area-bottom" />
+
 
         <svg
           className="pitch-line-layer"
@@ -619,12 +635,14 @@ function EventPitch({
                   event
                 );
 
+
               if (
                 !assist ||
                 !finish
               ) {
                 return null;
               }
+
 
               const a =
                 databaseToScreen(
@@ -637,6 +655,7 @@ function EventPitch({
                   finish.x,
                   finish.y
                 );
+
 
               return (
                 <line
@@ -653,6 +672,7 @@ function EventPitch({
 
         </svg>
 
+
         {events.map(
           (
             event,
@@ -663,11 +683,13 @@ function EventPitch({
                 event
               );
 
+
             if (
               !assist
             ) {
               return null;
             }
+
 
             const point =
               databaseToScreen(
@@ -675,13 +697,17 @@ function EventPitch({
                 assist.y
               );
 
+
             return (
               <div
                 key={`assist-${event.id ?? index}`}
+
                 className="analysis-start-point"
+
                 style={{
                   left:
                     `${point.x}%`,
+
                   top:
                     `${point.y}%`
                 }}
@@ -689,6 +715,7 @@ function EventPitch({
             );
           }
         )}
+
 
         {events.map(
           (
@@ -700,11 +727,13 @@ function EventPitch({
                 event
               );
 
+
             if (
               !finish
             ) {
               return null;
             }
+
 
             const point =
               databaseToScreen(
@@ -712,18 +741,23 @@ function EventPitch({
                 finish.y
               );
 
+
             return (
               <div
                 key={`finish-${event.id ?? index}`}
+
                 className="analysis-end-point"
+
                 style={{
                   left:
                     `${point.x}%`,
+
                   top:
                     `${point.y}%`
                 }}
               >
-                {event.minute ?? ""}
+                {event.minute ??
+                  ""}
               </div>
             );
           }
@@ -754,20 +788,26 @@ function StatCard({
         {title}
       </h2>
 
+
       {stats.length ===
         0 ? (
+
         <p>
           Keine Daten vorhanden.
         </p>
+
       ) : (
+
         <div className="stat-list">
 
           {stats.map(
             item => (
+
               <div
                 key={
                   item.name
                 }
+
                 className="stat-item"
               >
 
@@ -778,16 +818,19 @@ function StatCard({
                   </span>
 
                   <strong>
-                    {item.count}{" "}
+                    {item.count}
+                    {" "}
                     ({item.percentage}%)
                   </strong>
 
                 </div>
 
+
                 <div className="stat-bar-track">
 
                   <div
                     className="stat-bar-fill"
+
                     style={{
                       width:
                         `${item.percentage}%`
@@ -797,10 +840,12 @@ function StatCard({
                 </div>
 
               </div>
+
             )
           )}
 
         </div>
+
       )}
 
     </div>
@@ -821,11 +866,13 @@ function App() {
       "Teams wird initialisiert …"
     );
 
+
   const [
     userName,
     setUserName
   ] =
     useState("");
+
 
   const [
     tokenStatus,
@@ -833,11 +880,15 @@ function App() {
   ] =
     useState("");
 
+
   const [
     teamsReady,
     setTeamsReady
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     selectedTeam,
@@ -847,6 +898,7 @@ function App() {
       "U15"
     );
 
+
   const [
     viewMode,
     setViewMode
@@ -854,6 +906,11 @@ function App() {
     useState<ViewMode>(
       "matches"
     );
+
+
+  /* =====================================================
+     MATCH STATES
+     ===================================================== */
 
   const [
     matches,
@@ -863,17 +920,22 @@ function App() {
       []
     );
 
+
   const [
     matchesStatus,
     setMatchesStatus
   ] =
     useState("");
 
+
   const [
     loadingMatches,
     setLoadingMatches
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     selectedMatch,
@@ -883,6 +945,93 @@ function App() {
       null
     );
 
+
+  const [
+    showMatchForm,
+    setShowMatchForm
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    newMatchDate,
+    setNewMatchDate
+  ] =
+    useState("");
+
+
+  const [
+    newOpponent,
+    setNewOpponent
+  ] =
+    useState("");
+
+
+  const [
+    newCompetition,
+    setNewCompetition
+  ] =
+    useState(
+      "Punktspiel"
+    );
+
+
+  const [
+    newHomeAway,
+    setNewHomeAway
+  ] =
+    useState(
+      "Heim"
+    );
+
+
+  const [
+    savingMatch,
+    setSavingMatch
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    matchSaveStatus,
+    setMatchSaveStatus
+  ] =
+    useState("");
+
+
+  const [
+    matchToDelete,
+    setMatchToDelete
+  ] =
+    useState<MatchItem | null>(
+      null
+    );
+
+
+  const [
+    deletingMatch,
+    setDeletingMatch
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    matchDeleteStatus,
+    setMatchDeleteStatus
+  ] =
+    useState("");
+
+
+  /* =====================================================
+     EVENT STATES
+     ===================================================== */
+
   const [
     events,
     setEvents
@@ -890,6 +1039,7 @@ function App() {
     useState<GoalEvent[]>(
       []
     );
+
 
   const [
     teamEvents,
@@ -899,17 +1049,24 @@ function App() {
       []
     );
 
+
   const [
     loadingTeamEvents,
     setLoadingTeamEvents
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     showEventForm,
     setShowEventForm
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     eventType,
@@ -919,11 +1076,13 @@ function App() {
       "Tor"
     );
 
+
   const [
     minute,
     setMinute
   ] =
     useState("");
+
 
   const [
     scorer,
@@ -931,11 +1090,13 @@ function App() {
   ] =
     useState("");
 
+
   const [
     assister,
     setAssister
   ] =
     useState("");
+
 
   const [
     phase,
@@ -943,11 +1104,13 @@ function App() {
   ] =
     useState("");
 
+
   const [
     creationType,
     setCreationType
   ] =
     useState("");
+
 
   const [
     finishTouch,
@@ -955,17 +1118,20 @@ function App() {
   ] =
     useState("");
 
+
   const [
     setPieceType,
     setSetPieceType
   ] =
     useState("");
 
+
   const [
     comment,
     setComment
   ] =
     useState("");
+
 
   const [
     assistScreenPoint,
@@ -975,6 +1141,7 @@ function App() {
       null
     );
 
+
   const [
     finishScreenPoint,
     setFinishScreenPoint
@@ -983,17 +1150,22 @@ function App() {
       null
     );
 
+
   const [
     savingEvent,
     setSavingEvent
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     saveStatus,
     setSaveStatus
   ] =
     useState("");
+
 
   const [
     eventToDelete,
@@ -1003,11 +1175,15 @@ function App() {
       null
     );
 
+
   const [
     deletingEvent,
     setDeletingEvent
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     deleteStatus,
@@ -1025,6 +1201,7 @@ function App() {
       const token =
         await microsoftTeams.authentication.getAuthToken();
 
+
       if (
         !token
       ) {
@@ -1033,12 +1210,13 @@ function App() {
         );
       }
 
+
       return token;
     };
 
 
   /* =====================================================
-     INIT
+     TEAMS INIT
      ===================================================== */
 
   useEffect(() => {
@@ -1047,17 +1225,21 @@ function App() {
         try {
           await microsoftTeams.app.initialize();
 
+
           const context =
             await microsoftTeams.app.getContext();
+
 
           setStatus(
             "Microsoft Teams erkannt"
           );
 
+
           const contextUserName =
             context.user?.displayName ??
             context.user?.userPrincipalName ??
             "";
+
 
           if (
             contextUserName
@@ -1067,8 +1249,10 @@ function App() {
             );
           }
 
+
           const token =
             await getTeamsToken();
+
 
           const response =
             await fetch(
@@ -1081,8 +1265,10 @@ function App() {
               }
             );
 
+
           const data =
             (await response.json()) as MeResponse;
+
 
           if (
             !response.ok
@@ -1095,15 +1281,18 @@ function App() {
             return;
           }
 
+
           setUserName(
             data.user?.name ??
             data.user?.username ??
             contextUserName
           );
 
+
           setTokenStatus(
             "Teams SSO erfolgreich serverseitig validiert"
           );
+
 
           setTeamsReady(
             true
@@ -1115,18 +1304,20 @@ function App() {
             error
           );
 
+
           setStatus(
             "AKA Goals läuft außerhalb von Microsoft Teams"
           );
         }
       };
 
+
     void initTeams();
   }, []);
 
 
   /* =====================================================
-     MATCHES
+     MATCHES LADEN
      ===================================================== */
 
   const loadMatches =
@@ -1137,15 +1328,19 @@ function App() {
         true
       );
 
+
       setMatches([]);
+
 
       setMatchesStatus(
         `${team}-Spiele werden geladen …`
       );
 
+
       try {
         const token =
           await getTeamsToken();
+
 
         const response =
           await fetch(
@@ -1160,8 +1355,10 @@ function App() {
             }
           );
 
+
         const data =
           (await response.json()) as MatchesResponse;
+
 
         if (
           !response.ok
@@ -1174,6 +1371,7 @@ function App() {
           return;
         }
 
+
         const loaded =
           Array.isArray(
             data.matches
@@ -1181,17 +1379,291 @@ function App() {
             ? data.matches
             : [];
 
+
         setMatches(
           loaded
         );
 
+
         setMatchesStatus(
-          loaded.length === 0
+          loaded.length ===
+            0
             ? `Keine ${team}-Spiele gefunden`
             : `${loaded.length} ${team}-Spiele geladen`
         );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+
+        setMatchesStatus(
+          "Fehler beim Laden der Spiele"
+        );
       } finally {
         setLoadingMatches(
+          false
+        );
+      }
+    };
+
+
+  useEffect(() => {
+    if (
+      !teamsReady
+    ) {
+      return;
+    }
+
+
+    void loadMatches(
+      selectedTeam
+    );
+  }, [teamsReady]);
+
+
+  /* =====================================================
+     SPIEL ANLEGEN
+     ===================================================== */
+
+  const saveMatch =
+    async () => {
+      if (
+        !newMatchDate
+      ) {
+        setMatchSaveStatus(
+          "Bitte Datum auswählen."
+        );
+
+        return;
+      }
+
+
+      if (
+        !newOpponent.trim()
+      ) {
+        setMatchSaveStatus(
+          "Bitte Gegner eingeben."
+        );
+
+        return;
+      }
+
+
+      setSavingMatch(
+        true
+      );
+
+
+      setMatchSaveStatus(
+        "Spiel wird gespeichert …"
+      );
+
+
+      try {
+        const token =
+          await getTeamsToken();
+
+
+        const response =
+          await fetch(
+            "/api/matches",
+            {
+              method:
+                "POST",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+
+                "Content-Type":
+                  "application/json"
+              },
+
+              body:
+                JSON.stringify({
+                  team:
+                    selectedTeam,
+
+                  match_date:
+                    newMatchDate,
+
+                  opponent:
+                    newOpponent.trim(),
+
+                  competition:
+                    newCompetition,
+
+                  home_away:
+                    newHomeAway
+                })
+            }
+          );
+
+
+        const data =
+          (await response.json()) as MatchApiResponse;
+
+
+        if (
+          !response.ok
+        ) {
+          setMatchSaveStatus(
+            data.details
+              ? `${data.error} – ${data.details}`
+              : data.error ??
+                  "Spiel konnte nicht gespeichert werden"
+          );
+
+          return;
+        }
+
+
+        setShowMatchForm(
+          false
+        );
+
+
+        setNewMatchDate("");
+
+        setNewOpponent("");
+
+        setNewCompetition(
+          "Punktspiel"
+        );
+
+        setNewHomeAway(
+          "Heim"
+        );
+
+        setMatchSaveStatus("");
+
+
+        await loadMatches(
+          selectedTeam
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+
+        setMatchSaveStatus(
+          "Fehler beim Speichern des Spiels"
+        );
+      } finally {
+        setSavingMatch(
+          false
+        );
+      }
+    };
+
+
+  /* =====================================================
+     SPIEL LÖSCHEN
+     ===================================================== */
+
+  const deleteMatch =
+    async () => {
+      if (
+        matchToDelete?.id == null
+      ) {
+        setMatchDeleteStatus(
+          "Spiel-ID fehlt."
+        );
+
+        return;
+      }
+
+
+      setDeletingMatch(
+        true
+      );
+
+
+      setMatchDeleteStatus(
+        "Spiel wird gelöscht …"
+      );
+
+
+      try {
+        const token =
+          await getTeamsToken();
+
+
+        const response =
+          await fetch(
+            `/api/matches?id=${encodeURIComponent(
+              String(
+                matchToDelete.id
+              )
+            )}`,
+            {
+              method:
+                "DELETE",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
+            }
+          );
+
+
+        const data =
+          (await response.json()) as MatchApiResponse;
+
+
+        if (
+          !response.ok
+        ) {
+          setMatchDeleteStatus(
+            data.details
+              ? `${data.error} – ${data.details}`
+              : data.error ??
+                  "Spiel konnte nicht gelöscht werden"
+          );
+
+          return;
+        }
+
+
+        setMatchToDelete(
+          null
+        );
+
+
+        setMatchDeleteStatus("");
+
+
+        setSelectedMatch(
+          null
+        );
+
+
+        setEvents([]);
+
+
+        await loadMatches(
+          selectedTeam
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+
+        setMatchDeleteStatus(
+          "Fehler beim Löschen des Spiels"
+        );
+      } finally {
+        setDeletingMatch(
           false
         );
       }
@@ -1210,9 +1682,11 @@ function App() {
         true
       );
 
+
       try {
         const token =
           await getTeamsToken();
+
 
         const response =
           await fetch(
@@ -1227,8 +1701,10 @@ function App() {
             }
           );
 
+
         const data =
           (await response.json()) as EventsResponse;
+
 
         if (
           !response.ok
@@ -1240,12 +1716,19 @@ function App() {
           return;
         }
 
+
         setTeamEvents(
           Array.isArray(
             data.events
           )
             ? data.events
             : []
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
         );
       } finally {
         setLoadingTeamEvents(
@@ -1255,21 +1738,8 @@ function App() {
     };
 
 
-  useEffect(() => {
-    if (
-      !teamsReady
-    ) {
-      return;
-    }
-
-    void loadMatches(
-      selectedTeam
-    );
-  }, [teamsReady]);
-
-
   /* =====================================================
-     MATCH EVENTS
+     EINZELSPIEL EVENTS
      ===================================================== */
 
   const loadEvents =
@@ -1282,40 +1752,62 @@ function App() {
         return;
       }
 
+
       setSelectedMatch(
         match
       );
 
-      const token =
-        await getTeamsToken();
 
-      const response =
-        await fetch(
-          `/api/events?match_id=${encodeURIComponent(
-            String(
-              match.id
-            )
-          )}`,
-          {
-            headers: {
-              Authorization:
-                `Bearer ${token}`
+      setShowMatchForm(
+        false
+      );
+
+
+      try {
+        const token =
+          await getTeamsToken();
+
+
+        const response =
+          await fetch(
+            `/api/events?match_id=${encodeURIComponent(
+              String(
+                match.id
+              )
+            )}`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`
+              }
             }
-          }
-        );
+          );
 
-      const data =
-        (await response.json()) as EventsResponse;
 
-      if (
-        response.ok
+        const data =
+          (await response.json()) as EventsResponse;
+
+
+        if (
+          response.ok
+        ) {
+          setEvents(
+            Array.isArray(
+              data.events
+            )
+              ? data.events
+              : []
+          );
+        } else {
+          console.error(
+            data
+          );
+        }
+      } catch (
+        error
       ) {
-        setEvents(
-          Array.isArray(
-            data.events
-          )
-            ? data.events
-            : []
+        console.error(
+          error
         );
       }
     };
@@ -1331,9 +1823,11 @@ function App() {
         "matches"
       );
 
+
       setSelectedMatch(
         null
       );
+
 
       setShowEventForm(
         false
@@ -1347,13 +1841,21 @@ function App() {
         "analysis"
       );
 
+
       setSelectedMatch(
         null
       );
 
+
       setShowEventForm(
         false
       );
+
+
+      setShowMatchForm(
+        false
+      );
+
 
       void loadTeamEvents(
         selectedTeam
@@ -1362,7 +1864,7 @@ function App() {
 
 
   /* =====================================================
-     FORM
+     EVENT FORM
      ===================================================== */
 
   const openEventForm =
@@ -1373,24 +1875,36 @@ function App() {
         type
       );
 
+
       setMinute("");
+
       setScorer("");
+
       setAssister("");
+
       setPhase("");
+
       setCreationType("");
+
       setFinishTouch("");
+
       setSetPieceType("");
+
       setComment("");
+
 
       setAssistScreenPoint(
         null
       );
 
+
       setFinishScreenPoint(
         null
       );
 
+
       setSaveStatus("");
+
 
       setShowEventForm(
         true
@@ -1398,12 +1912,17 @@ function App() {
     };
 
 
+  /* =====================================================
+     PITCH CLICK
+     ===================================================== */
+
   const handlePitchClick =
     (
       event: MouseEvent<HTMLDivElement>
     ) => {
       const rect =
         event.currentTarget.getBoundingClientRect();
+
 
       const point:
         ScreenPoint =
@@ -1435,6 +1954,7 @@ function App() {
             100
         };
 
+
       if (
         !assistScreenPoint
       ) {
@@ -1444,6 +1964,7 @@ function App() {
 
         return;
       }
+
 
       if (
         !finishScreenPoint
@@ -1455,9 +1976,11 @@ function App() {
         return;
       }
 
+
       setAssistScreenPoint(
         point
       );
+
 
       setFinishScreenPoint(
         null
@@ -1530,7 +2053,7 @@ function App() {
 
 
   /* =====================================================
-     SAVE
+     EVENT SPEICHERN
      ===================================================== */
 
   const saveEvent =
@@ -1548,13 +2071,16 @@ function App() {
         return;
       }
 
+
       setSavingEvent(
         true
       );
 
+
       try {
         const token =
           await getTeamsToken();
+
 
         const response =
           await fetch(
@@ -1635,8 +2161,10 @@ function App() {
             }
           );
 
+
         const data =
           (await response.json()) as EventsResponse;
+
 
         if (
           !response.ok
@@ -1651,16 +2179,28 @@ function App() {
           return;
         }
 
+
         await loadEvents(
           selectedMatch
         );
+
 
         setShowEventForm(
           false
         );
 
+
+        setSaveStatus("");
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+
         setSaveStatus(
-          ""
+          "Fehler beim Speichern"
         );
       } finally {
         setSavingEvent(
@@ -1671,7 +2211,7 @@ function App() {
 
 
   /* =====================================================
-     DELETE
+     EVENT LÖSCHEN
      ===================================================== */
 
   const executeDeleteEvent =
@@ -1683,17 +2223,21 @@ function App() {
         return;
       }
 
+
       setDeletingEvent(
         true
       );
+
 
       setDeleteStatus(
         "Ereignis wird gelöscht …"
       );
 
+
       try {
         const token =
           await getTeamsToken();
+
 
         const response =
           await fetch(
@@ -1713,6 +2257,7 @@ function App() {
             }
           );
 
+
         if (
           response.ok
         ) {
@@ -1720,9 +2265,9 @@ function App() {
             null
           );
 
-          setDeleteStatus(
-            ""
-          );
+
+          setDeleteStatus("");
+
 
           await loadEvents(
             selectedMatch
@@ -1731,11 +2276,23 @@ function App() {
           const data =
             (await response.json()) as EventsResponse;
 
+
           setDeleteStatus(
             data.error ??
               "Löschen fehlgeschlagen"
           );
         }
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+
+        setDeleteStatus(
+          "Fehler beim Löschen"
+        );
       } finally {
         setDeletingEvent(
           false
@@ -1781,6 +2338,7 @@ function App() {
       () =>
         createStats(
           teamGoals,
+
           event =>
             event.finish_touch
         ),
@@ -1795,6 +2353,7 @@ function App() {
       () =>
         createStats(
           teamConceded,
+
           event =>
             event.finish_touch
         ),
@@ -1938,6 +2497,52 @@ function App() {
         : "Unbekannter Gegner";
 
 
+  const formatMatchDate =
+    (
+      raw:
+        string |
+        undefined
+    ) => {
+      if (
+        !raw
+      ) {
+        return "";
+      }
+
+
+      const date =
+        new Date(
+          `${raw}T12:00:00`
+        );
+
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return raw;
+      }
+
+
+      return new Intl.DateTimeFormat(
+        "de-DE",
+        {
+          day:
+            "2-digit",
+
+          month:
+            "2-digit",
+
+          year:
+            "numeric"
+        }
+      ).format(
+        date
+      );
+    };
+
+
   const goals =
     events.filter(
       event =>
@@ -1953,6 +2558,10 @@ function App() {
         "Gegentor"
     );
 
+
+  /* =====================================================
+     EVENT RENDER
+     ===================================================== */
 
   const renderEvent =
     (
@@ -1974,12 +2583,14 @@ function App() {
             : "Minute unbekannt"}
         </strong>
 
+
         {event.scorer && (
           <p>
             Torschütze:{" "}
             {event.scorer}
           </p>
         )}
+
 
         {event.assister && (
           <p>
@@ -1988,12 +2599,14 @@ function App() {
           </p>
         )}
 
+
         {event.phase && (
           <p>
             Phase:{" "}
             {event.phase}
           </p>
         )}
+
 
         {event.creation_type && (
           <p>
@@ -2002,12 +2615,14 @@ function App() {
           </p>
         )}
 
+
         {event.finish_touch && (
           <p>
             Abschlusskontakt:{" "}
             {event.finish_touch}
           </p>
         )}
+
 
         {event.set_piece_type && (
           <p>
@@ -2016,12 +2631,14 @@ function App() {
           </p>
         )}
 
+
         {event.assist_zone && (
           <p>
             Assist-Zone:{" "}
             {event.assist_zone}
           </p>
         )}
+
 
         {event.finish_zone && (
           <p>
@@ -2030,12 +2647,14 @@ function App() {
           </p>
         )}
 
+
         {event.comment && (
           <p>
             Kommentar:{" "}
             {event.comment}
           </p>
         )}
+
 
         <button
           className="delete-event-button"
@@ -2045,9 +2664,8 @@ function App() {
               event
             );
 
-            setDeleteStatus(
-              ""
-            );
+
+            setDeleteStatus("");
           }}
         >
           Löschen
@@ -2065,6 +2683,7 @@ function App() {
     <div className="app">
 
       <header>
+
         <h1>
           AKA Goals
         </h1>
@@ -2072,7 +2691,9 @@ function App() {
         <span>
           SV Oberbank Ried
         </span>
+
       </header>
+
 
       <main>
 
@@ -2080,30 +2701,37 @@ function App() {
           AKA Goals Dashboard
         </h2>
 
+
         {userName && (
           <p>
             Angemeldet als{" "}
+
             <strong>
               {userName}
             </strong>
           </p>
         )}
 
+
         <p className="status">
           {status}
         </p>
+
 
         <p className="status">
           {tokenStatus}
         </p>
 
 
-        {/* TEAM AUSWAHL */}
+        {/* =================================================
+            TEAM AUSWAHL
+            ================================================= */}
 
         <div className="cards">
 
           {TEAMS.map(
             team => (
+
               <div
                 key={
                   team
@@ -2121,21 +2749,42 @@ function App() {
                     team
                   );
 
+
                   setSelectedMatch(
                     null
                   );
 
+
                   setEvents([]);
 
+
                   setTeamEvents([]);
+
 
                   setViewMode(
                     "matches"
                   );
 
+
                   setShowEventForm(
                     false
                   );
+
+
+                  setShowMatchForm(
+                    false
+                  );
+
+
+                  setEventToDelete(
+                    null
+                  );
+
+
+                  setMatchToDelete(
+                    null
+                  );
+
 
                   void loadMatches(
                     team
@@ -2147,18 +2796,22 @@ function App() {
                   {team}
                 </h3>
 
+
                 <p>
                   Goals &amp; Analysis
                 </p>
 
               </div>
+
             )
           )}
 
         </div>
 
 
-        {/* NAVIGATION */}
+        {/* =================================================
+            NAVIGATION
+            ================================================= */}
 
         <div className="view-switcher">
 
@@ -2176,6 +2829,7 @@ function App() {
           >
             Spiele
           </button>
+
 
           <button
             className={
@@ -2195,7 +2849,9 @@ function App() {
         </div>
 
 
-        {/* TEAM AUSWERTUNG */}
+        {/* =================================================
+            TEAM AUSWERTUNG
+            ================================================= */}
 
         {viewMode ===
           "analysis" ? (
@@ -2203,19 +2859,26 @@ function App() {
           <section>
 
             <h2>
-              {selectedTeam} – Team-Auswertung
+              {selectedTeam}
+              {" – "}
+              Team-Auswertung
             </h2>
 
+
             {loadingTeamEvents ? (
+
               <p>
                 Auswertung wird geladen …
               </p>
+
             ) : (
+
               <>
 
                 <div className="analysis-kpis">
 
                   <div className="kpi-card">
+
                     <span>
                       Tore
                     </span>
@@ -2223,9 +2886,12 @@ function App() {
                     <strong>
                       {teamGoals.length}
                     </strong>
+
                   </div>
 
+
                   <div className="kpi-card">
+
                     <span>
                       Gegentore
                     </span>
@@ -2233,9 +2899,12 @@ function App() {
                     <strong>
                       {teamConceded.length}
                     </strong>
+
                   </div>
 
+
                   <div className="kpi-card">
+
                     <span>
                       Tordifferenz
                     </span>
@@ -2244,9 +2913,12 @@ function App() {
                       {teamGoals.length -
                         teamConceded.length}
                     </strong>
+
                   </div>
 
+
                   <div className="kpi-card">
+
                     <span>
                       Spiele
                     </span>
@@ -2254,6 +2926,7 @@ function App() {
                     <strong>
                       {matches.length}
                     </strong>
+
                   </div>
 
                 </div>
@@ -2262,6 +2935,7 @@ function App() {
                 <h2 className="analysis-heading">
                   Abschluss nach Kontakten
                 </h2>
+
 
                 <div className="events-grid">
 
@@ -2286,6 +2960,7 @@ function App() {
                   Standards
                 </h2>
 
+
                 <div className="events-grid">
 
                   <StatCard
@@ -2308,6 +2983,7 @@ function App() {
                 <h2 className="analysis-heading">
                   Assist-Zonen
                 </h2>
+
 
                 <div className="events-grid">
 
@@ -2332,6 +3008,7 @@ function App() {
                   Abschluss-Zonen
                 </h2>
 
+
                 <div className="events-grid">
 
                   <StatCard
@@ -2355,6 +3032,7 @@ function App() {
                   Positionsdaten
                 </h2>
 
+
                 <div className="analysis-grid">
 
                   <EventPitch
@@ -2364,6 +3042,7 @@ function App() {
 
                     title={`Alle Tore (${teamGoals.length})`}
                   />
+
 
                   <EventPitch
                     events={
@@ -2376,25 +3055,42 @@ function App() {
                 </div>
 
               </>
+
             )}
 
           </section>
 
         ) : selectedMatch ? (
 
-          /* EINZELSPIEL */
+          /* =================================================
+             MATCH DETAIL
+             ================================================= */
 
           <section>
 
             <button
-              onClick={() =>
+              onClick={() => {
                 setSelectedMatch(
                   null
-                )
-              }
+                );
+
+
+                setEvents([]);
+
+
+                setShowEventForm(
+                  false
+                );
+
+
+                setEventToDelete(
+                  null
+                );
+              }}
             >
               ← Zurück zu den Spielen
             </button>
+
 
             <h2>
               {selectedTeam}
@@ -2403,6 +3099,24 @@ function App() {
                 selectedMatch
               )}
             </h2>
+
+
+            {selectedMatch.match_date && (
+              <p>
+                {formatMatchDate(
+                  selectedMatch.match_date
+                )}
+              </p>
+            )}
+
+
+            {selectedMatch.competition && (
+              <p>
+                {selectedMatch.competition}
+                {" · "}
+                {selectedMatch.home_away}
+              </p>
+            )}
 
 
             <div className="event-actions">
@@ -2417,6 +3131,7 @@ function App() {
                 + Tor erfassen
               </button>
 
+
               <button
                 onClick={() =>
                   openEventForm(
@@ -2430,13 +3145,26 @@ function App() {
             </div>
 
 
+            {/* EVENT DELETE */}
+
             {eventToDelete && (
 
               <div className="delete-confirm-box">
 
                 <strong>
-                  Ereignis löschen?
+                  {eventToDelete.event_type ===
+                  "Gegentor"
+                    ? "Gegentor löschen?"
+                    : "Tor löschen?"}
                 </strong>
+
+
+                <p>
+                  {eventToDelete.minute != null
+                    ? `${eventToDelete.minute}. Minute`
+                    : "Minute unbekannt"}
+                </p>
+
 
                 <div className="form-actions">
 
@@ -2449,20 +3177,27 @@ function App() {
                       deletingEvent
                     }
                   >
-                    Ja, löschen
+                    {deletingEvent
+                      ? "Wird gelöscht …"
+                      : "Ja, löschen"}
                   </button>
 
+
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setEventToDelete(
                         null
-                      )
-                    }
+                      );
+
+
+                      setDeleteStatus("");
+                    }}
                   >
                     Abbrechen
                   </button>
 
                 </div>
+
 
                 {deleteStatus && (
                   <p className="status">
@@ -2475,13 +3210,17 @@ function App() {
             )}
 
 
+            {/* EVENT FORM */}
+
             {showEventForm && (
 
               <div className="card event-form-card">
 
                 <h2>
-                  {eventType} erfassen
+                  {eventType}
+                  {" erfassen"}
                 </h2>
+
 
                 <div className="event-form">
 
@@ -2490,7 +3229,9 @@ function App() {
 
                     <input
                       type="number"
+
                       min="0"
+
                       max="130"
 
                       value={
@@ -2509,6 +3250,7 @@ function App() {
 
                   {eventType ===
                     "Tor" && (
+
                     <>
 
                       <label>
@@ -2528,6 +3270,7 @@ function App() {
                         />
                       </label>
 
+
                       <label>
                         Assist
 
@@ -2546,6 +3289,7 @@ function App() {
                       </label>
 
                     </>
+
                   )}
 
 
@@ -2564,12 +3308,15 @@ function App() {
                           )
                       }
                     >
+
                       {PHASES.map(
                         item => (
+
                           <option
                             key={
                               item
                             }
+
                             value={
                               item
                             }
@@ -2577,8 +3324,10 @@ function App() {
                             {item ||
                               "Bitte auswählen"}
                           </option>
+
                         )
                       )}
+
                     </select>
                   </label>
 
@@ -2598,12 +3347,15 @@ function App() {
                           )
                       }
                     >
+
                       {CREATION_TYPES.map(
                         item => (
+
                           <option
                             key={
                               item
                             }
+
                             value={
                               item
                             }
@@ -2611,8 +3363,10 @@ function App() {
                             {item ||
                               "Bitte auswählen"}
                           </option>
+
                         )
                       )}
+
                     </select>
                   </label>
 
@@ -2632,12 +3386,15 @@ function App() {
                           )
                       }
                     >
+
                       {FINISH_TOUCHES.map(
                         item => (
+
                           <option
                             key={
                               item
                             }
+
                             value={
                               item
                             }
@@ -2645,8 +3402,10 @@ function App() {
                             {item ||
                               "Bitte auswählen"}
                           </option>
+
                         )
                       )}
+
                     </select>
                   </label>
 
@@ -2666,12 +3425,15 @@ function App() {
                           )
                       }
                     >
+
                       {SET_PIECE_TYPES.map(
                         item => (
+
                           <option
                             key={
                               item
                             }
+
                             value={
                               item
                             }
@@ -2679,8 +3441,10 @@ function App() {
                             {item ||
                               "Kein Standard"}
                           </option>
+
                         )
                       )}
+
                     </select>
                   </label>
 
@@ -2693,26 +3457,28 @@ function App() {
                         comment
                       }
 
+                      rows={
+                        3
+                      }
+
                       onChange={
                         event =>
                           setComment(
                             event.target.value
                           )
                       }
-
-                      rows={
-                        3
-                      }
                     />
                   </label>
 
 
                   <p className="pitch-help">
+
                     {!assistScreenPoint
                       ? "1. Klick: Assist / Entstehung"
                       : !finishScreenPoint
                         ? "2. Klick: Abschluss"
                         : "Beide Positionen gesetzt"}
+
                   </p>
 
 
@@ -2725,14 +3491,20 @@ function App() {
                   >
 
                     <div className="pitch-halfway-line" />
+
                     <div className="pitch-center-circle" />
+
                     <div className="penalty-area penalty-area-top" />
+
                     <div className="penalty-area penalty-area-bottom" />
+
                     <div className="goal-area goal-area-top" />
+
                     <div className="goal-area goal-area-bottom" />
 
 
                     {assistScreenPoint && (
+
                       <div
                         className="pitch-point assist-point"
 
@@ -2746,10 +3518,12 @@ function App() {
                       >
                         1
                       </div>
+
                     )}
 
 
                     {finishScreenPoint && (
+
                       <div
                         className="pitch-point finish-point"
 
@@ -2763,6 +3537,7 @@ function App() {
                       >
                         2
                       </div>
+
                     )}
 
 
@@ -2771,24 +3546,32 @@ function App() {
 
                       <svg
                         className="pitch-line-layer"
+
                         viewBox="0 0 100 100"
+
                         preserveAspectRatio="none"
                       >
+
                         <line
                           x1={
                             assistScreenPoint.x
                           }
+
                           y1={
                             assistScreenPoint.y
                           }
+
                           x2={
                             finishScreenPoint.x
                           }
+
                           y2={
                             finishScreenPoint.y
                           }
+
                           vectorEffect="non-scaling-stroke"
                         />
+
                       </svg>
 
                     )}
@@ -2805,18 +3588,18 @@ function App() {
                         Automatische Zonen
                       </strong>
 
+
                       {currentAssistZone && (
                         <p>
-                          Assist:
-                          {" "}
+                          Assist:{" "}
                           {currentAssistZone}
                         </p>
                       )}
 
+
                       {currentFinishZone && (
                         <p>
-                          Abschluss:
-                          {" "}
+                          Abschluss:{" "}
                           {currentFinishZone}
                         </p>
                       )}
@@ -2833,6 +3616,7 @@ function App() {
                       setAssistScreenPoint(
                         null
                       );
+
 
                       setFinishScreenPoint(
                         null
@@ -2868,6 +3652,7 @@ function App() {
                       : "Speichern"}
                   </button>
 
+
                   <button
                     onClick={() =>
                       setShowEventForm(
@@ -2885,6 +3670,8 @@ function App() {
             )}
 
 
+            {/* MATCH ANALYSE */}
+
             <div className="analysis-grid">
 
               <EventPitch
@@ -2894,6 +3681,7 @@ function App() {
 
                 title={`Tore (${goals.length})`}
               />
+
 
               <EventPitch
                 events={
@@ -2914,16 +3702,21 @@ function App() {
                   Tore ({goals.length})
                 </h2>
 
+
                 {goals.length ===
-                  0
-                  ? (
-                    <p>
-                      Keine Tore erfasst.
-                    </p>
+                  0 ? (
+
+                  <p>
+                    Keine Tore erfasst.
+                  </p>
+
+                ) : (
+
+                  goals.map(
+                    renderEvent
                   )
-                  : goals.map(
-                      renderEvent
-                    )}
+
+                )}
 
               </div>
 
@@ -2934,16 +3727,21 @@ function App() {
                   Gegentore ({concededGoals.length})
                 </h2>
 
+
                 {concededGoals.length ===
-                  0
-                  ? (
-                    <p>
-                      Keine Gegentore erfasst.
-                    </p>
+                  0 ? (
+
+                  <p>
+                    Keine Gegentore erfasst.
+                  </p>
+
+                ) : (
+
+                  concededGoals.map(
+                    renderEvent
                   )
-                  : concededGoals.map(
-                      renderEvent
-                    )}
+
+                )}
 
               </div>
 
@@ -2953,39 +3751,307 @@ function App() {
 
         ) : (
 
-          /* SPIELLISTE */
+          /* =================================================
+             SPIELLISTE
+             ================================================= */
 
-          <section>
+          <section className="matches-section">
 
             <h2>
-              {selectedTeam} Spiele
+              {selectedTeam}
+              {" Spiele"}
             </h2>
+
+
+            <div className="match-management-actions">
+
+              <button
+                onClick={() => {
+                  setShowMatchForm(
+                    true
+                  );
+
+
+                  setMatchSaveStatus("");
+
+
+                  setMatchToDelete(
+                    null
+                  );
+                }}
+              >
+                + Neues Spiel
+              </button>
+
+            </div>
+
+
+            {/* NEUES SPIEL */}
+
+            {showMatchForm && (
+
+              <div className="card match-form-card">
+
+                <h3>
+                  Neues {selectedTeam}-Spiel
+                </h3>
+
+
+                <div className="event-form">
+
+                  <label>
+                    Datum
+
+                    <input
+                      type="date"
+
+                      value={
+                        newMatchDate
+                      }
+
+                      onChange={
+                        event =>
+                          setNewMatchDate(
+                            event.target.value
+                          )
+                      }
+                    />
+                  </label>
+
+
+                  <label>
+                    Gegner
+
+                    <input
+                      type="text"
+
+                      placeholder="Gegner"
+
+                      value={
+                        newOpponent
+                      }
+
+                      onChange={
+                        event =>
+                          setNewOpponent(
+                            event.target.value
+                          )
+                      }
+                    />
+                  </label>
+
+
+                  <label>
+                    Bewerb
+
+                    <select
+                      value={
+                        newCompetition
+                      }
+
+                      onChange={
+                        event =>
+                          setNewCompetition(
+                            event.target.value
+                          )
+                      }
+                    >
+
+                      <option value="Punktspiel">
+                        Punktspiel
+                      </option>
+
+                      <option value="Testspiel">
+                        Testspiel
+                      </option>
+
+                    </select>
+                  </label>
+
+
+                  <label>
+                    Heim / Auswärts
+
+                    <select
+                      value={
+                        newHomeAway
+                      }
+
+                      onChange={
+                        event =>
+                          setNewHomeAway(
+                            event.target.value
+                          )
+                      }
+                    >
+
+                      <option value="Heim">
+                        Heim
+                      </option>
+
+                      <option value="Auswärts">
+                        Auswärts
+                      </option>
+
+                    </select>
+                  </label>
+
+                </div>
+
+
+                {matchSaveStatus && (
+                  <p className="status">
+                    {matchSaveStatus}
+                  </p>
+                )}
+
+
+                <div className="form-actions">
+
+                  <button
+                    onClick={() =>
+                      void saveMatch()
+                    }
+
+                    disabled={
+                      savingMatch
+                    }
+                  >
+                    {savingMatch
+                      ? "Speichern …"
+                      : "Spiel speichern"}
+                  </button>
+
+
+                  <button
+                    onClick={() => {
+                      setShowMatchForm(
+                        false
+                      );
+
+
+                      setMatchSaveStatus("");
+                    }}
+                  >
+                    Abbrechen
+                  </button>
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {/* SPIEL LÖSCHEN */}
+
+            {matchToDelete && (
+
+              <div className="delete-confirm-box">
+
+                <strong>
+                  Spiel wirklich löschen?
+                </strong>
+
+
+                <p>
+                  {getMatchTitle(
+                    matchToDelete
+                  )}
+                </p>
+
+
+                {matchToDelete.match_date && (
+                  <p>
+                    {formatMatchDate(
+                      matchToDelete.match_date
+                    )}
+                  </p>
+                )}
+
+
+                <p className="delete-warning">
+                  Achtung: Alle Tore und Gegentore dieses
+                  Spiels werden ebenfalls gelöscht.
+                </p>
+
+
+                <div className="form-actions">
+
+                  <button
+                    onClick={() =>
+                      void deleteMatch()
+                    }
+
+                    disabled={
+                      deletingMatch
+                    }
+                  >
+                    {deletingMatch
+                      ? "Wird gelöscht …"
+                      : "Ja, Spiel löschen"}
+                  </button>
+
+
+                  <button
+                    onClick={() => {
+                      setMatchToDelete(
+                        null
+                      );
+
+
+                      setMatchDeleteStatus("");
+                    }}
+                  >
+                    Abbrechen
+                  </button>
+
+                </div>
+
+
+                {matchDeleteStatus && (
+                  <p className="status">
+                    {matchDeleteStatus}
+                  </p>
+                )}
+
+              </div>
+
+            )}
+
 
             <p className="status">
               {matchesStatus}
             </p>
 
-            {loadingMatches
-              ? (
-                <p>
-                  Daten werden geladen …
-                </p>
-              )
-              : matches.map(
-                  (
-                    match,
-                    index
-                  ) => (
+
+            {loadingMatches ? (
+
+              <p>
+                Daten werden geladen …
+              </p>
+
+            ) : (
+
+              matches.map(
+                (
+                  match,
+                  index
+                ) => (
+
+                  <div
+                    key={
+                      String(
+                        match.id ??
+                        index
+                      )
+                    }
+
+                    className="card match-card"
+                  >
 
                     <div
-                      key={
-                        String(
-                          match.id ??
-                          index
-                        )
-                      }
-
-                      className="card match-card"
+                      className="match-card-content"
 
                       onClick={() =>
                         void loadEvents(
@@ -3000,14 +4066,88 @@ function App() {
                         )}
                       </h3>
 
+
+                      {match.match_date && (
+
+                        <p>
+                          <strong>
+                            Datum:
+                          </strong>
+                          {" "}
+                          {formatMatchDate(
+                            match.match_date
+                          )}
+                        </p>
+
+                      )}
+
+
+                      {match.competition && (
+
+                        <p>
+                          <strong>
+                            Bewerb:
+                          </strong>
+                          {" "}
+                          {match.competition}
+                        </p>
+
+                      )}
+
+
+                      {match.home_away && (
+
+                        <p>
+                          <strong>
+                            Ort:
+                          </strong>
+                          {" "}
+                          {match.home_away}
+                        </p>
+
+                      )}
+
+
                       <p>
                         Öffnen →
                       </p>
 
                     </div>
 
-                  )
-                )}
+
+                    <button
+                      type="button"
+
+                      className="delete-match-button"
+
+                      onClick={
+                        event => {
+                          event.stopPropagation();
+
+
+                          setMatchToDelete(
+                            match
+                          );
+
+
+                          setShowMatchForm(
+                            false
+                          );
+
+
+                          setMatchDeleteStatus("");
+                        }
+                      }
+                    >
+                      Spiel löschen
+                    </button>
+
+                  </div>
+
+                )
+              )
+
+            )}
 
           </section>
 
@@ -3018,5 +4158,6 @@ function App() {
     </div>
   );
 }
+
 
 export default App;

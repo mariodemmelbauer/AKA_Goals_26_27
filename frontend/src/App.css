@@ -4,13 +4,31 @@
   color: #111;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
+  background: #f4f5f7;
+  color: #111;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 .app {
   min-height: 100vh;
 }
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
 
 header {
   background: #111;
@@ -21,28 +39,42 @@ header {
 
 header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 26px;
+  line-height: 1.1;
 }
 
 header span {
+  display: block;
+  margin-top: 4px;
   color: #78c832;
   font-size: 14px;
-}
-
-main {
-  padding: 28px;
-  max-width: 1180px;
-  margin: 0 auto;
-  text-align: center;
-}
-
-.status {
-  color: #666;
+  font-weight: 600;
 }
 
 
 /* =========================================================
-   CARDS
+   MAIN
+   ========================================================= */
+
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px;
+  text-align: center;
+}
+
+main > h2 {
+  margin-top: 0;
+}
+
+.status {
+  color: #666;
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   GENERIC CARDS
    ========================================================= */
 
 .cards {
@@ -65,9 +97,15 @@ main {
     0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.card h2,
 .card h3 {
   margin-top: 0;
 }
+
+
+/* =========================================================
+   TEAM CARDS
+   ========================================================= */
 
 .team-card {
   cursor: pointer;
@@ -78,22 +116,14 @@ main {
 }
 
 .team-card:hover {
-  transform:
-    translateY(-2px);
+  transform: translateY(-2px);
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.1);
 }
 
 .active-team {
   background: #eef8e7;
   border-left-width: 7px;
-}
-
-.match-card {
-  cursor: pointer;
-  margin-bottom: 12px;
-}
-
-.match-card:hover {
-  background: #fafafa;
 }
 
 
@@ -107,16 +137,27 @@ button {
   border: 1px solid #bbb;
   border-radius: 6px;
   background: #fff;
+  color: #111;
   font-size: 14px;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
 }
 
 button:hover {
   background: #f1f1f1;
+  border-color: #999;
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 button:disabled {
   cursor: default;
   opacity: 0.6;
+  transform: none;
 }
 
 
@@ -128,6 +169,7 @@ button:disabled {
   display: flex;
   justify-content: center;
   gap: 10px;
+  flex-wrap: wrap;
   margin: 24px 0 30px;
 }
 
@@ -139,20 +181,63 @@ button:disabled {
 
 .view-button-active:hover {
   background: #222;
+  border-color: #222;
 }
 
 
 /* =========================================================
-   MATCH
+   MATCH LIST
    ========================================================= */
-
-.match-detail {
-  margin-top: 20px;
-}
 
 .matches-section {
   margin-top: 20px;
 }
+
+.match-card {
+  margin: 0 0 14px;
+  text-align: left;
+}
+
+.match-card-content {
+  cursor: pointer;
+  padding-bottom: 4px;
+}
+
+.match-card-content:hover h3 {
+  text-decoration: underline;
+}
+
+.match-card p {
+  margin:
+    6px 0;
+}
+
+.delete-match-button {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   MATCH MANAGEMENT
+   ========================================================= */
+
+.match-management-actions {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0 22px;
+}
+
+.match-form-card {
+  max-width: 620px;
+  margin: 0 auto 28px;
+  text-align: left;
+}
+
+
+/* =========================================================
+   EVENT ACTIONS
+   ========================================================= */
 
 .event-actions {
   display: flex;
@@ -164,11 +249,11 @@ button:disabled {
 
 
 /* =========================================================
-   FORM
+   FORMS
    ========================================================= */
 
 .event-form-card {
-  max-width: 650px;
+  max-width: 680px;
   margin: 0 auto 30px;
   text-align: left;
 }
@@ -185,7 +270,8 @@ button:disabled {
 }
 
 .event-form input,
-.event-form select {
+.event-form select,
+.event-form textarea {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 12px;
@@ -193,17 +279,33 @@ button:disabled {
   border-radius: 6px;
   font-size: 15px;
   background: #fff;
+  color: #111;
+}
+
+.event-form input:focus,
+.event-form select:focus,
+.event-form textarea:focus {
+  outline: none;
+  border-color: #78c832;
+  box-shadow:
+    0 0 0 2px rgba(120, 200, 50, 0.14);
+}
+
+.event-form textarea {
+  font-family: inherit;
+  resize: vertical;
 }
 
 .form-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
   margin-top: 20px;
 }
 
 
 /* =========================================================
-   DELETE
+   DELETE BOXES
    ========================================================= */
 
 .delete-event-button {
@@ -212,7 +314,7 @@ button:disabled {
 }
 
 .delete-confirm-box {
-  max-width: 500px;
+  max-width: 520px;
   margin: 20px auto;
   padding: 18px;
   background: #fff;
@@ -224,14 +326,26 @@ button:disabled {
   text-align: left;
 }
 
+.delete-confirm-box strong {
+  display: block;
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.delete-warning {
+  font-weight: 600;
+  margin-top: 12px;
+}
+
 
 /* =========================================================
-   PITCH
+   FOOTBALL PITCH
    ========================================================= */
 
 .pitch-help {
   color: #666;
   font-size: 14px;
+  margin-bottom: 4px;
 }
 
 .football-pitch {
@@ -240,7 +354,7 @@ button:disabled {
   aspect-ratio: 68 / 105;
   margin: 12px auto;
   background: #6fad45;
-  border: 2px solid white;
+  border: 2px solid #fff;
   box-sizing: border-box;
   cursor: crosshair;
   overflow: hidden;
@@ -251,19 +365,18 @@ button:disabled {
   left: 0;
   top: 50%;
   width: 100%;
-  border-top: 2px solid white;
+  border-top: 2px solid #fff;
 }
 
 .pitch-center-circle {
   position: absolute;
   width: 20%;
   aspect-ratio: 1;
-  border: 2px solid white;
+  border: 2px solid #fff;
   border-radius: 50%;
   left: 40%;
   top: 50%;
-  transform:
-    translateY(-50%);
+  transform: translateY(-50%);
   box-sizing: border-box;
 }
 
@@ -272,7 +385,7 @@ button:disabled {
   width: 64%;
   height: 16%;
   left: 18%;
-  border: 2px solid white;
+  border: 2px solid #fff;
   box-sizing: border-box;
 }
 
@@ -289,7 +402,7 @@ button:disabled {
   width: 30%;
   height: 6%;
   left: 35%;
-  border: 2px solid white;
+  border: 2px solid #fff;
   box-sizing: border-box;
 }
 
@@ -303,7 +416,7 @@ button:disabled {
 
 
 /* =========================================================
-   PITCH INPUT
+   INPUT POINTS
    ========================================================= */
 
 .pitch-point {
@@ -311,13 +424,13 @@ button:disabled {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  transform:
-    translate(-50%, -50%);
+  transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
   font-weight: 700;
-  z-index: 5;
-  border: 2px solid white;
+  z-index: 6;
+  border: 2px solid #fff;
+  user-select: none;
 }
 
 .assist-point {
@@ -342,7 +455,7 @@ button:disabled {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 3;
+  z-index: 4;
 }
 
 .pitch-line-layer line {
@@ -353,11 +466,12 @@ button:disabled {
 
 
 /* =========================================================
-   ANALYSIS PITCH
+   MATCH ANALYSIS
    ========================================================= */
 
 .analysis-heading {
   margin-top: 42px;
+  margin-bottom: 12px;
 }
 
 .analysis-grid {
@@ -379,6 +493,10 @@ button:disabled {
     0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.analysis-pitch-wrapper h3 {
+  margin-top: 0;
+}
+
 .analysis-pitch {
   width: min(100%, 360px);
   cursor: default;
@@ -391,9 +509,8 @@ button:disabled {
   border-radius: 50%;
   background: #111;
   border: 1px solid #fff;
-  transform:
-    translate(-50%, -50%);
-  z-index: 5;
+  transform: translate(-50%, -50%);
+  z-index: 6;
 }
 
 .analysis-end-point {
@@ -405,9 +522,8 @@ button:disabled {
   background: #fff;
   color: #111;
   border: 2px solid #111;
-  transform:
-    translate(-50%, -50%);
-  z-index: 6;
+  transform: translate(-50%, -50%);
+  z-index: 7;
   display: grid;
   place-items: center;
   font-size: 11px;
@@ -417,7 +533,7 @@ button:disabled {
 
 
 /* =========================================================
-   KPI
+   KPI CARDS
    ========================================================= */
 
 .analysis-kpis {
@@ -454,45 +570,7 @@ button:disabled {
 
 
 /* =========================================================
-   HEATMAP
-   ========================================================= */
-
-.heatmap-info {
-  color: #666;
-  font-size: 13px;
-}
-
-.heatmap-pitch {
-  position: relative;
-}
-
-.heatmap-grid {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: grid;
-  pointer-events: none;
-}
-
-.heatmap-cell {
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-}
-
-.heatmap-cell-active {
-  background: #111;
-}
-
-.heatmap-cell span {
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-
-/* =========================================================
-   STATS
+   EVENT / STAT GRIDS
    ========================================================= */
 
 .events-grid {
@@ -505,6 +583,28 @@ button:disabled {
   gap: 20px;
   margin-top: 25px;
 }
+
+.event-entry {
+  border-top:
+    1px solid #ddd;
+  padding:
+    14px 0;
+  text-align: left;
+}
+
+.event-entry:first-of-type {
+  border-top: 0;
+}
+
+.event-entry p {
+  margin:
+    5px 0;
+}
+
+
+/* =========================================================
+   STAT CARDS
+   ========================================================= */
 
 .stat-card {
   text-align: left;
@@ -550,7 +650,45 @@ button:disabled {
 
 
 /* =========================================================
-   MINUTES
+   OPTIONAL HEATMAP SUPPORT
+   ========================================================= */
+
+.heatmap-info {
+  color: #666;
+  font-size: 13px;
+}
+
+.heatmap-pitch {
+  position: relative;
+}
+
+.heatmap-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  pointer-events: none;
+}
+
+.heatmap-cell {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+.heatmap-cell-active {
+  background: #111;
+}
+
+.heatmap-cell span {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   MINUTE ANALYSIS SUPPORT
    ========================================================= */
 
 .minute-analysis-card {
@@ -579,43 +717,39 @@ button:disabled {
 
 
 /* =========================================================
-   EVENT LIST
+   TEAM ANALYSIS SECTION
    ========================================================= */
 
-.event-entry {
-  border-top:
-    1px solid #ddd;
-  padding:
-    14px 0;
-}
-
-.event-entry p {
-  margin:
-    5px 0;
+.team-analysis-section {
+  margin-top: 10px;
 }
 
 
 /* =========================================================
-   MOBILE
+   RESPONSIVE
    ========================================================= */
 
 @media (
-  max-width: 800px
+  max-width: 900px
 ) {
-  main {
-    padding:
-      16px;
-  }
-
-  .cards {
+  .analysis-kpis {
     grid-template-columns:
       repeat(
         2,
         1fr
       );
   }
+}
 
-  .analysis-kpis {
+
+@media (
+  max-width: 800px
+) {
+  main {
+    padding: 16px;
+  }
+
+  .cards {
     grid-template-columns:
       repeat(
         2,
@@ -628,14 +762,54 @@ button:disabled {
     grid-template-columns:
       1fr;
   }
+
+  .event-form-card,
+  .match-form-card {
+    max-width: 100%;
+  }
 }
+
 
 @media (
   max-width: 520px
 ) {
+  header {
+    padding:
+      15px 16px;
+  }
+
+  header h1 {
+    font-size: 22px;
+  }
+
+  main {
+    padding:
+      12px;
+  }
+
   .cards {
     grid-template-columns:
       1fr;
+  }
+
+  .analysis-kpis {
+    grid-template-columns:
+      repeat(
+        2,
+        1fr
+      );
+  }
+
+  .event-actions,
+  .view-switcher,
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .event-actions button,
+  .view-switcher button,
+  .form-actions button {
+    width: 100%;
   }
 
   .minute-table {
@@ -643,16 +817,8 @@ button:disabled {
       70px 1fr 1fr;
     font-size: 13px;
   }
-}
 
-.event-form textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 15px;
-  font-family: inherit;
-  resize: vertical;
-  background: #fff;
+  .football-pitch {
+    width: 100%;
+  }
 }
