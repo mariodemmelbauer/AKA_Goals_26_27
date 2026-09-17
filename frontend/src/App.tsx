@@ -189,6 +189,7 @@ function databaseToScreen(
   };
 }
 
+
 function screenToDatabase(
   screenX: number,
   screenY: number
@@ -202,6 +203,7 @@ function screenToDatabase(
       screenX
   };
 }
+
 
 function getAssistPoint(
   event: GoalEvent
@@ -225,6 +227,7 @@ function getAssistPoint(
       )
   };
 }
+
 
 function getFinishPoint(
   event: GoalEvent
@@ -251,6 +254,228 @@ function getFinishPoint(
 
 
 /* =====================================================
+   ZONENLOGIK
+   ===================================================== */
+
+/*
+ * Feld:
+ * Länge 105 m
+ * Breite 68 m
+ *
+ * 16,5-m-Strafraum:
+ * 16,5 / 105 = 15,714 %
+ *
+ * Angriffstor liegt bei x = 100.
+ *
+ * Beginn Strafraum:
+ * 100 - 15,714 = 84,286
+ *
+ * Strafraumbreite:
+ * 40,32 m von 68 m.
+ *
+ * Linke Grenze:
+ * (68 - 40,32) / 2 / 68 * 100
+ * ≈ 20,35
+ *
+ * Rechte Grenze:
+ * ≈ 79,65
+ */
+
+const FIRST_THIRD =
+  100 / 3;
+
+const SECOND_THIRD =
+  (100 / 3) * 2;
+
+const PENALTY_BOX_X =
+  100 -
+  (
+    16.5 /
+    105
+  ) *
+    100;
+
+const PENALTY_BOX_Y_MIN =
+  (
+    (
+      68 -
+      40.32
+    ) /
+    2 /
+    68
+  ) *
+  100;
+
+const PENALTY_BOX_Y_MAX =
+  100 -
+  PENALTY_BOX_Y_MIN;
+
+
+/*
+ * Box wird für die Analyse noch einmal
+ * in links / zentral / rechts unterteilt.
+ *
+ * Die Grenzen 45 / 55 entsprechen
+ * den vorhandenen Daten sehr gut:
+ *
+ * y 38–42  => Box links
+ * y 46–50  => Box zentral
+ * y 67     => Box rechts
+ */
+
+const BOX_LEFT_END =
+  45;
+
+const BOX_CENTER_END =
+  55;
+
+
+/*
+ * Allgemeine fünf vertikale Korridore:
+ *
+ * 0–20   linker Flügel
+ * 20–40  linker Halbraum
+ * 40–60  Zentrum
+ * 60–80  rechter Halbraum
+ * 80–100 rechter Flügel
+ */
+
+function getHorizontalLane(
+  y: number
+): string {
+  if (
+    y < 20
+  ) {
+    return "linker Flügel";
+  }
+
+  if (
+    y < 40
+  ) {
+    return "linker Halbraum";
+  }
+
+  if (
+    y <= 60
+  ) {
+    return "Zentrum";
+  }
+
+  if (
+    y <= 80
+  ) {
+    return "rechter Halbraum";
+  }
+
+  return "rechter Flügel";
+}
+
+
+function calculateZone(
+  x: number,
+  y: number
+): string {
+  const safeX =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        x
+      )
+    );
+
+  const safeY =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        y
+      )
+    );
+
+
+  /* ===================================================
+     BOX AM GEGNERISCHEN TOR
+     =================================================== */
+
+  const insideAttackingBox =
+    safeX >=
+      PENALTY_BOX_X &&
+    safeY >=
+      PENALTY_BOX_Y_MIN &&
+    safeY <=
+      PENALTY_BOX_Y_MAX;
+
+  if (
+    insideAttackingBox
+  ) {
+    if (
+      safeY <
+      BOX_LEFT_END
+    ) {
+      return "Box links";
+    }
+
+    if (
+      safeY <=
+      BOX_CENTER_END
+    ) {
+      return "Box zentral";
+    }
+
+    return "Box rechts";
+  }
+
+
+  /* ===================================================
+     ZONE 14
+     =================================================== */
+
+  const insideZone14 =
+    safeX >=
+      SECOND_THIRD &&
+    safeX <
+      PENALTY_BOX_X &&
+    safeY >=
+      40 &&
+    safeY <=
+      60;
+
+  if (
+    insideZone14
+  ) {
+    return "Zone 14 / Zentrum vor Box";
+  }
+
+
+  /* ===================================================
+     FELDDRITTEL
+     =================================================== */
+
+  const lane =
+    getHorizontalLane(
+      safeY
+    );
+
+  if (
+    safeX <
+    FIRST_THIRD
+  ) {
+    return `Aufbaudrittel – ${lane}`;
+  }
+
+  if (
+    safeX <
+    SECOND_THIRD
+  ) {
+    return `Mitteldrittel – ${lane}`;
+  }
+
+  return `Angriffsdrittel – ${lane}`;
+}
+
+
+/* =====================================================
    STATS
    ===================================================== */
 
@@ -272,6 +497,7 @@ function percentage(
       100
   );
 }
+
 
 function createStats(
   events: GoalEvent[],
@@ -346,7 +572,7 @@ function createStats(
 
 
 /* =====================================================
-   PITCH
+   EVENT PITCH
    ===================================================== */
 
 function EventPitch({
@@ -443,7 +669,7 @@ function EventPitch({
               return null;
             }
 
-            const p =
+            const point =
               databaseToScreen(
                 assist.x,
                 assist.y
@@ -455,9 +681,9 @@ function EventPitch({
                 className="analysis-start-point"
                 style={{
                   left:
-                    `${p.x}%`,
+                    `${point.x}%`,
                   top:
-                    `${p.y}%`
+                    `${point.y}%`
                 }}
               />
             );
@@ -480,7 +706,7 @@ function EventPitch({
               return null;
             }
 
-            const p =
+            const point =
               databaseToScreen(
                 finish.x,
                 finish.y
@@ -492,13 +718,12 @@ function EventPitch({
                 className="analysis-end-point"
                 style={{
                   left:
-                    `${p.x}%`,
+                    `${point.x}%`,
                   top:
-                    `${p.y}%`
+                    `${point.y}%`
                 }}
               >
-                {event.minute ??
-                  ""}
+                {event.minute ?? ""}
               </div>
             );
           }
@@ -1240,13 +1465,81 @@ function App() {
     };
 
 
+  /* =====================================================
+     LIVE ZONEN
+     ===================================================== */
+
+  const assistDatabasePoint =
+    useMemo(
+      () =>
+        assistScreenPoint
+          ? screenToDatabase(
+              assistScreenPoint.x,
+              assistScreenPoint.y
+            )
+          : null,
+      [
+        assistScreenPoint
+      ]
+    );
+
+
+  const finishDatabasePoint =
+    useMemo(
+      () =>
+        finishScreenPoint
+          ? screenToDatabase(
+              finishScreenPoint.x,
+              finishScreenPoint.y
+            )
+          : null,
+      [
+        finishScreenPoint
+      ]
+    );
+
+
+  const currentAssistZone =
+    useMemo(
+      () =>
+        assistDatabasePoint
+          ? calculateZone(
+              assistDatabasePoint.x,
+              assistDatabasePoint.y
+            )
+          : "",
+      [
+        assistDatabasePoint
+      ]
+    );
+
+
+  const currentFinishZone =
+    useMemo(
+      () =>
+        finishDatabasePoint
+          ? calculateZone(
+              finishDatabasePoint.x,
+              finishDatabasePoint.y
+            )
+          : "",
+      [
+        finishDatabasePoint
+      ]
+    );
+
+
+  /* =====================================================
+     SAVE
+     ===================================================== */
+
   const saveEvent =
     async () => {
       if (
         !selectedMatch ||
         selectedMatch.id == null ||
-        !assistScreenPoint ||
-        !finishScreenPoint
+        !assistDatabasePoint ||
+        !finishDatabasePoint
       ) {
         setSaveStatus(
           "Bitte beide Positionen setzen."
@@ -1254,18 +1547,6 @@ function App() {
 
         return;
       }
-
-      const assistDatabase =
-        screenToDatabase(
-          assistScreenPoint.x,
-          assistScreenPoint.y
-        );
-
-      const finishDatabase =
-        screenToDatabase(
-          finishScreenPoint.x,
-          finishScreenPoint.y
-        );
 
       setSavingEvent(
         true
@@ -1334,16 +1615,22 @@ function App() {
                   comment,
 
                   assist_x:
-                    assistDatabase.x,
+                    assistDatabasePoint.x,
 
                   assist_y:
-                    assistDatabase.y,
+                    assistDatabasePoint.y,
+
+                  assist_zone:
+                    currentAssistZone,
 
                   finish_x:
-                    finishDatabase.x,
+                    finishDatabasePoint.x,
 
                   finish_y:
-                    finishDatabase.y
+                    finishDatabasePoint.y,
+
+                  finish_zone:
+                    currentFinishZone
                 })
             }
           );
@@ -1458,7 +1745,7 @@ function App() {
 
 
   /* =====================================================
-     ANALYSIS
+     TEAM ANALYSIS
      ===================================================== */
 
   const teamGoals =
@@ -1494,7 +1781,6 @@ function App() {
       () =>
         createStats(
           teamGoals,
-
           event =>
             event.finish_touch
         ),
@@ -1509,7 +1795,6 @@ function App() {
       () =>
         createStats(
           teamConceded,
-
           event =>
             event.finish_touch
         ),
@@ -1559,7 +1844,7 @@ function App() {
     );
 
 
-  const assistZoneStats =
+  const goalAssistZoneStats =
     useMemo(
       () =>
         createStats(
@@ -1579,7 +1864,7 @@ function App() {
     );
 
 
-  const finishZoneStats =
+  const goalFinishZoneStats =
     useMemo(
       () =>
         createStats(
@@ -1595,6 +1880,46 @@ function App() {
         ),
       [
         teamGoals
+      ]
+    );
+
+
+  const concededAssistZoneStats =
+    useMemo(
+      () =>
+        createStats(
+          teamConceded.filter(
+            event =>
+              Boolean(
+                event.assist_zone
+              )
+          ),
+
+          event =>
+            event.assist_zone
+        ),
+      [
+        teamConceded
+      ]
+    );
+
+
+  const concededFinishZoneStats =
+    useMemo(
+      () =>
+        createStats(
+          teamConceded.filter(
+            event =>
+              Boolean(
+                event.finish_zone
+              )
+          ),
+
+          event =>
+            event.finish_zone
+        ),
+      [
+        teamConceded
       ]
     );
 
@@ -1773,6 +2098,8 @@ function App() {
         </p>
 
 
+        {/* TEAM AUSWAHL */}
+
         <div className="cards">
 
           {TEAMS.map(
@@ -1831,6 +2158,8 @@ function App() {
         </div>
 
 
+        {/* NAVIGATION */}
+
         <div className="view-switcher">
 
           <button
@@ -1866,9 +2195,7 @@ function App() {
         </div>
 
 
-        {/* =================================================
-            TEAM ANALYSIS
-            ================================================= */}
+        {/* TEAM AUSWERTUNG */}
 
         {viewMode ===
           "analysis" ? (
@@ -1979,22 +2306,45 @@ function App() {
 
 
                 <h2 className="analysis-heading">
-                  Zonen
+                  Assist-Zonen
                 </h2>
 
                 <div className="events-grid">
 
                   <StatCard
-                    title="Assist-Zonen Tore"
+                    title="Tore"
                     stats={
-                      assistZoneStats
+                      goalAssistZoneStats
                     }
                   />
 
                   <StatCard
-                    title="Abschluss-Zonen Tore"
+                    title="Gegentore"
                     stats={
-                      finishZoneStats
+                      concededAssistZoneStats
+                    }
+                  />
+
+                </div>
+
+
+                <h2 className="analysis-heading">
+                  Abschluss-Zonen
+                </h2>
+
+                <div className="events-grid">
+
+                  <StatCard
+                    title="Tore"
+                    stats={
+                      goalFinishZoneStats
+                    }
+                  />
+
+                  <StatCard
+                    title="Gegentore"
+                    stats={
+                      concededFinishZoneStats
                     }
                   />
 
@@ -2011,6 +2361,7 @@ function App() {
                     events={
                       teamGoals
                     }
+
                     title={`Alle Tore (${teamGoals.length})`}
                   />
 
@@ -2018,6 +2369,7 @@ function App() {
                     events={
                       teamConceded
                     }
+
                     title={`Alle Gegentore (${teamConceded.length})`}
                   />
 
@@ -2030,9 +2382,7 @@ function App() {
 
         ) : selectedMatch ? (
 
-          /* =================================================
-             MATCH DETAIL
-             ================================================= */
+          /* EINZELSPIEL */
 
           <section>
 
@@ -2220,7 +2570,6 @@ function App() {
                             key={
                               item
                             }
-
                             value={
                               item
                             }
@@ -2255,7 +2604,6 @@ function App() {
                             key={
                               item
                             }
-
                             value={
                               item
                             }
@@ -2290,7 +2638,6 @@ function App() {
                             key={
                               item
                             }
-
                             value={
                               item
                             }
@@ -2325,7 +2672,6 @@ function App() {
                             key={
                               item
                             }
-
                             value={
                               item
                             }
@@ -2393,6 +2739,7 @@ function App() {
                         style={{
                           left:
                             `${assistScreenPoint.x}%`,
+
                           top:
                             `${assistScreenPoint.y}%`
                         }}
@@ -2409,6 +2756,7 @@ function App() {
                         style={{
                           left:
                             `${finishScreenPoint.x}%`,
+
                           top:
                             `${finishScreenPoint.y}%`
                         }}
@@ -2446,6 +2794,36 @@ function App() {
                     )}
 
                   </div>
+
+
+                  {(currentAssistZone ||
+                    currentFinishZone) && (
+
+                    <div className="card">
+
+                      <strong>
+                        Automatische Zonen
+                      </strong>
+
+                      {currentAssistZone && (
+                        <p>
+                          Assist:
+                          {" "}
+                          {currentAssistZone}
+                        </p>
+                      )}
+
+                      {currentFinishZone && (
+                        <p>
+                          Abschluss:
+                          {" "}
+                          {currentFinishZone}
+                        </p>
+                      )}
+
+                    </div>
+
+                  )}
 
 
                   <button
@@ -2575,9 +2953,7 @@ function App() {
 
         ) : (
 
-          /* =================================================
-             MATCH LIST
-             ================================================= */
+          /* SPIELLISTE */
 
           <section>
 
