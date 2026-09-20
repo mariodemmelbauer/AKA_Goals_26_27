@@ -214,26 +214,19 @@ function databaseToScreen(
   databaseY: number
 ): ScreenPoint {
   return {
-    x:
-      databaseY,
-
-    y:
-      100 -
-      databaseX
+    x: databaseY,
+    y: 100 - databaseX
   };
 }
+
 
 function screenToDatabase(
   screenX: number,
   screenY: number
 ): DatabasePoint {
   return {
-    x:
-      100 -
-      screenY,
-
-    y:
-      screenX
+    x: 100 - screenY,
+    y: screenX
   };
 }
 
@@ -249,16 +242,43 @@ function getFinishPoint(
   }
 
   return {
-    x:
-      Number(
-        event.finish_x
-      ),
-
-    y:
-      Number(
-        event.finish_y
-      )
+    x: Number(event.finish_x),
+    y: Number(event.finish_y)
   };
+}
+
+
+/* =====================================================
+   ELFMETER
+   ===================================================== */
+
+/*
+ * 11 Meter bei 105 Meter Feldlänge:
+ *
+ * 11 / 105 * 100 = 10,476...
+ *
+ * Gegentor:
+ * x = 10,48
+ *
+ * Eigenes Tor:
+ * x = 89,52
+ */
+
+function getPenaltyScreenPoint(
+  eventType: EventType
+): ScreenPoint {
+  const penaltyDistancePercent =
+    (11 / 105) * 100;
+
+  const databaseX =
+    eventType === "Tor"
+      ? 100 - penaltyDistancePercent
+      : penaltyDistancePercent;
+
+  return databaseToScreen(
+    databaseX,
+    50
+  );
 }
 
 
@@ -270,24 +290,17 @@ function getAssistPoints(
   event: GoalEvent
 ): AssistPoint[] {
   if (
-    Array.isArray(
-      event.assist_points
-    ) &&
-    event.assist_points.length >
-      0
+    Array.isArray(event.assist_points) &&
+    event.assist_points.length > 0
   ) {
     return event.assist_points
       .filter(
         point =>
           Number.isFinite(
-            Number(
-              point.x
-            )
+            Number(point.x)
           ) &&
           Number.isFinite(
-            Number(
-              point.y
-            )
+            Number(point.y)
           )
       )
       .map(
@@ -295,19 +308,15 @@ function getAssistPoints(
           point,
           index
         ) => ({
-          order:
-            index +
-            1,
+          order: index + 1,
 
-          x:
-            Number(
-              point.x
-            ),
+          x: Number(
+            point.x
+          ),
 
-          y:
-            Number(
-              point.y
-            ),
+          y: Number(
+            point.y
+          ),
 
           zone:
             point.zone ??
@@ -332,18 +341,15 @@ function getAssistPoints(
   ) {
     return [
       {
-        order:
-          1,
+        order: 1,
 
-        x:
-          Number(
-            event.assist_x
-          ),
+        x: Number(
+          event.assist_x
+        ),
 
-        y:
-          Number(
-            event.assist_y
-          ),
+        y: Number(
+          event.assist_y
+        ),
 
         zone:
           event.assist_zone ??
@@ -365,19 +371,11 @@ const FIRST_THIRD =
   100 / 3;
 
 const SECOND_THIRD =
-  (
-    100 /
-    3
-  ) *
-  2;
+  (100 / 3) * 2;
 
 const PENALTY_BOX_X =
   100 -
-  (
-    16.5 /
-    105
-  ) *
-    100;
+  (16.5 / 105) * 100;
 
 const PENALTY_BOX_Y_MIN =
   (
@@ -405,29 +403,25 @@ function getHorizontalLane(
   y: number
 ): string {
   if (
-    y <
-    20
+    y < 20
   ) {
     return "linker Flügel";
   }
 
   if (
-    y <
-    40
+    y < 40
   ) {
     return "linker Halbraum";
   }
 
   if (
-    y <=
-    60
+    y <= 60
   ) {
     return "Zentrum";
   }
 
   if (
-    y <=
-    80
+    y <= 80
   ) {
     return "rechter Halbraum";
   }
@@ -460,12 +454,9 @@ function calculateZone(
 
 
   const insideAttackingBox =
-    safeX >=
-      PENALTY_BOX_X &&
-    safeY >=
-      PENALTY_BOX_Y_MIN &&
-    safeY <=
-      PENALTY_BOX_Y_MAX;
+    safeX >= PENALTY_BOX_X &&
+    safeY >= PENALTY_BOX_Y_MIN &&
+    safeY <= PENALTY_BOX_Y_MAX;
 
 
   if (
@@ -490,14 +481,10 @@ function calculateZone(
 
 
   const insideZone14 =
-    safeX >=
-      SECOND_THIRD &&
-    safeX <
-      PENALTY_BOX_X &&
-    safeY >=
-      40 &&
-    safeY <=
-      60;
+    safeX >= SECOND_THIRD &&
+    safeX < PENALTY_BOX_X &&
+    safeY >= 40 &&
+    safeY <= 60;
 
 
   if (
@@ -542,18 +529,14 @@ function percentage(
   total: number
 ): number {
   if (
-    total <=
-    0
+    total <= 0
   ) {
     return 0;
   }
 
   return Math.round(
-    (
-      count /
-      total
-    ) *
-      100
+    (count / total) *
+    100
   );
 }
 
@@ -583,8 +566,7 @@ function createStats(
         );
 
       const key =
-        typeof raw ===
-          "string" &&
+        typeof raw === "string" &&
         raw.trim()
           ? raw.trim()
           : "Nicht angegeben";
@@ -598,7 +580,7 @@ function createStats(
           ) ??
           0
         ) +
-          1
+        1
       );
     }
   );
@@ -704,11 +686,8 @@ function EventPitch({
                 [
                   ...assists.map(
                     point => ({
-                      x:
-                        point.x,
-
-                      y:
-                        point.y
+                      x: point.x,
+                      y: point.y
                     })
                   ),
 
@@ -813,8 +792,7 @@ function EventPitch({
                         "#fff"
                     }}
                   >
-                    {index +
-                      1}
+                    {index + 1}
                   </div>
                 );
               }
@@ -861,8 +839,7 @@ function EventPitch({
                     `${point.y}%`
                 }}
               >
-                {event.minute ??
-                  ""}
+                {event.minute ?? ""}
               </div>
             );
           }
@@ -895,7 +872,7 @@ function StatCard({
 
 
       {stats.length ===
-        0 ? (
+      0 ? (
 
         <p>
           Keine Daten vorhanden.
@@ -1418,7 +1395,7 @@ function App() {
           ) {
             setTokenStatus(
               data.error ??
-                "SSO Validierung fehlgeschlagen"
+              "SSO Validierung fehlgeschlagen"
             );
 
             return;
@@ -1506,7 +1483,7 @@ function App() {
         ) {
           setMatchesStatus(
             data.error ??
-              "Spiele konnten nicht geladen werden"
+            "Spiele konnten nicht geladen werden"
           );
 
           return;
@@ -1527,8 +1504,7 @@ function App() {
 
 
         setMatchesStatus(
-          loaded.length ===
-            0
+          loaded.length === 0
             ? `Keine ${team}-Spiele gefunden`
             : `${loaded.length} ${team}-Spiele geladen`
         );
@@ -1652,7 +1628,7 @@ function App() {
             data.details
               ? `${data.error} – ${data.details}`
               : data.error ??
-                  "Spiel konnte nicht gespeichert werden"
+              "Spiel konnte nicht gespeichert werden"
           );
 
           return;
@@ -1754,7 +1730,7 @@ function App() {
         ) {
           setMatchDeleteStatus(
             data.error ??
-              "Spiel konnte nicht gelöscht werden"
+            "Spiel konnte nicht gelöscht werden"
           );
 
           return;
@@ -1959,12 +1935,19 @@ function App() {
       );
 
       setMinute("");
+
       setScorer("");
+
       setAssister("");
+
       setPhase("");
+
       setCreationType("");
+
       setFinishTouch("");
+
       setSetPieceType("");
+
       setComment("");
 
       setActionCount(
@@ -1988,6 +1971,43 @@ function App() {
 
 
   /* =====================================================
+     STANDARD ÄNDERN
+     ===================================================== */
+
+  const handleSetPieceChange =
+    (
+      value: string
+    ) => {
+      setSetPieceType(
+        value
+      );
+
+
+      if (
+        value ===
+        "Elfmeter"
+      ) {
+        setActionScreenPoints(
+          []
+        );
+
+        setFinishScreenPoint(
+          getPenaltyScreenPoint(
+            eventType
+          )
+        );
+
+        return;
+      }
+
+
+      setFinishScreenPoint(
+        null
+      );
+    };
+
+
+  /* =====================================================
      PITCH CLICK
      ===================================================== */
 
@@ -1995,6 +2015,19 @@ function App() {
     (
       event: MouseEvent<HTMLDivElement>
     ) => {
+      /*
+       * Elfmeterpunkt wird automatisch gesetzt.
+       * Manuelle Klicks werden beim Elfmeter ignoriert.
+       */
+
+      if (
+        setPieceType ===
+        "Elfmeter"
+      ) {
+        return;
+      }
+
+
       const rect =
         event.currentTarget.getBoundingClientRect();
 
@@ -2011,7 +2044,7 @@ function App() {
                 ) /
                 rect.width
               ) *
-                10000
+              10000
             ) /
             100,
 
@@ -2024,7 +2057,7 @@ function App() {
                 ) /
                 rect.height
               ) *
-                10000
+              10000
             ) /
             100
         };
@@ -2058,7 +2091,7 @@ function App() {
 
       /*
        * Wenn bereits alles gesetzt wurde,
-       * startet der nächste Klick eine neue Kette.
+       * startet ein neuer Klick die Kette neu.
        */
 
       setActionScreenPoints(
@@ -2091,10 +2124,10 @@ function App() {
                 point.y
               );
 
+
             return {
               order:
-                index +
-                1,
+                index + 1,
 
               x:
                 databasePoint.x,
@@ -2160,7 +2193,13 @@ function App() {
       }
 
 
+      const isPenalty =
+        setPieceType ===
+        "Elfmeter";
+
+
       if (
+        !isPenalty &&
         actionDatabasePoints.length !==
         actionCount
       ) {
@@ -2184,10 +2223,13 @@ function App() {
 
 
       const lastAssist =
-        actionDatabasePoints[
-          actionDatabasePoints.length -
-          1
-        ];
+        actionDatabasePoints.length >
+        0
+          ? actionDatabasePoints[
+              actionDatabasePoints.length -
+              1
+            ]
+          : null;
 
 
       setSavingEvent(
@@ -2227,22 +2269,20 @@ function App() {
                     eventType,
 
                   minute:
-                    minute ===
-                    ""
+                    minute === ""
                       ? null
                       : Number(
                           minute
                         ),
 
                   scorer:
-                    eventType ===
-                    "Tor"
+                    eventType === "Tor"
                       ? scorer
                       : null,
 
                   assister:
-                    eventType ===
-                    "Tor"
+                    eventType === "Tor" &&
+                    !isPenalty
                       ? assister
                       : null,
 
@@ -2251,22 +2291,33 @@ function App() {
                   creation_type:
                     creationType,
 
-                  assist_points:
-                    actionDatabasePoints,
-
                   /*
-                   * Letzter Assist zusätzlich in
-                   * bestehenden Legacy-Spalten.
+                   * Beim Elfmeter gibt es keine
+                   * Voraktion / Assistposition.
                    */
 
+                  assist_points:
+                    isPenalty
+                      ? []
+                      : actionDatabasePoints,
+
                   assist_x:
-                    lastAssist.x,
+                    isPenalty
+                      ? null
+                      : lastAssist?.x ??
+                        null,
 
                   assist_y:
-                    lastAssist.y,
+                    isPenalty
+                      ? null
+                      : lastAssist?.y ??
+                        null,
 
                   assist_zone:
-                    lastAssist.zone,
+                    isPenalty
+                      ? null
+                      : lastAssist?.zone ??
+                        null,
 
                   finish_x:
                     finishDatabasePoint.x,
@@ -2300,7 +2351,7 @@ function App() {
             data.details
               ? `${data.error} – ${data.details}`
               : data.error ??
-                  "Speichern fehlgeschlagen"
+              "Speichern fehlgeschlagen"
           );
 
           return;
@@ -2386,7 +2437,7 @@ function App() {
 
           setDeleteStatus(
             data.error ??
-              "Löschen fehlgeschlagen"
+            "Löschen fehlgeschlagen"
           );
         }
       } finally {
@@ -2444,7 +2495,7 @@ function App() {
         ) {
           setMoveStatus(
             data.error ??
-              "Ziel-Spiele konnten nicht geladen werden"
+            "Ziel-Spiele konnten nicht geladen werden"
           );
 
           return;
@@ -2465,8 +2516,7 @@ function App() {
 
 
         if (
-          loaded.length >
-          0 &&
+          loaded.length > 0 &&
           loaded[0].id != null
         ) {
           setMoveTargetMatchId(
@@ -2583,7 +2633,7 @@ function App() {
             data.details
               ? `${data.error} – ${data.details}`
               : data.error ??
-                  "Verschieben fehlgeschlagen"
+              "Verschieben fehlgeschlagen"
           );
 
           return;
@@ -2806,7 +2856,7 @@ function App() {
       match: MatchItem
     ) =>
       typeof match.opponent ===
-        "string"
+      "string"
         ? match.opponent
         : "Unbekannter Gegner";
 
@@ -2921,10 +2971,13 @@ function App() {
           )}
 
 
-          <p>
-            Aktionen vor Abschluss:{" "}
-            {eventAssistPoints.length}
-          </p>
+          {event.set_piece_type !==
+          "Elfmeter" && (
+            <p>
+              Aktionen vor Abschluss:{" "}
+              {eventAssistPoints.length}
+            </p>
+          )}
 
 
           {event.phase && (
@@ -3065,7 +3118,9 @@ function App() {
         </p>
 
 
-        {/* TEAM AUSWAHL */}
+        {/* =================================================
+            TEAM AUSWAHL
+            ================================================= */}
 
         <div className="cards">
 
@@ -3078,8 +3133,7 @@ function App() {
                 }
 
                 className={`card team-card ${
-                  selectedTeam ===
-                  team
+                  selectedTeam === team
                     ? "active-team"
                     : ""
                 }`}
@@ -3143,7 +3197,9 @@ function App() {
         </div>
 
 
-        {/* NAVIGATION */}
+        {/* =================================================
+            NAVIGATION
+            ================================================= */}
 
         <div className="view-switcher">
 
@@ -3186,7 +3242,7 @@ function App() {
             ================================================= */}
 
         {viewMode ===
-          "analysis" ? (
+        "analysis" ? (
 
           <section>
 
@@ -3242,7 +3298,7 @@ function App() {
 
                     <strong>
                       {teamGoals.length -
-                        teamConceded.length}
+                      teamConceded.length}
                     </strong>
 
                   </div>
@@ -3468,7 +3524,9 @@ function App() {
             </div>
 
 
-            {/* EVENT VERSCHIEBEN */}
+            {/* =================================================
+                EVENT VERSCHIEBEN
+                ================================================= */}
 
             {eventToMove && (
 
@@ -3560,7 +3618,7 @@ function App() {
                     >
 
                       {moveMatches.length ===
-                        0 && (
+                      0 && (
 
                         <option value="">
                           Keine Spiele vorhanden
@@ -3647,7 +3705,9 @@ function App() {
             )}
 
 
-            {/* EVENT DELETE */}
+            {/* =================================================
+                EVENT DELETE
+                ================================================= */}
 
             {eventToDelete && (
 
@@ -3699,7 +3759,9 @@ function App() {
             )}
 
 
-            {/* EVENT FORM */}
+            {/* =================================================
+                EVENT FORM
+                ================================================= */}
 
             {showEventForm && (
 
@@ -3736,7 +3798,7 @@ function App() {
 
 
                   {eventType ===
-                    "Tor" && (
+                  "Tor" && (
 
                     <>
 
@@ -3758,75 +3820,85 @@ function App() {
                       </label>
 
 
-                      <label>
-                        Assist / letzter Passgeber
+                      {setPieceType !==
+                      "Elfmeter" && (
 
-                        <input
-                          value={
-                            assister
-                          }
+                        <label>
+                          Assist / letzter Passgeber
 
-                          onChange={
-                            event =>
-                              setAssister(
-                                event.target.value
-                              )
-                          }
-                        />
-                      </label>
+                          <input
+                            value={
+                              assister
+                            }
+
+                            onChange={
+                              event =>
+                                setAssister(
+                                  event.target.value
+                                )
+                            }
+                          />
+                        </label>
+
+                      )}
 
                     </>
 
                   )}
 
 
-                  <label>
-                    Anzahl Aktionen vor dem Abschluss
+                  {setPieceType !==
+                  "Elfmeter" && (
 
-                    <select
-                      value={
-                        actionCount
-                      }
+                    <label>
+                      Anzahl Aktionen vor dem Abschluss
 
-                      onChange={
-                        event => {
-                          const value =
-                            Number(
-                              event.target.value
-                            ) as
-                              1 |
-                              2 |
-                              3;
-
-                          setActionCount(
-                            value
-                          );
-
-                          setActionScreenPoints(
-                            []
-                          );
-
-                          setFinishScreenPoint(
-                            null
-                          );
+                      <select
+                        value={
+                          actionCount
                         }
-                      }
-                    >
 
-                      <option value="1">
-                        1 Aktion / Assist
-                      </option>
+                        onChange={
+                          event => {
+                            const value =
+                              Number(
+                                event.target.value
+                              ) as
+                                1 |
+                                2 |
+                                3;
 
-                      <option value="2">
-                        2 Aktionen / Assists
-                      </option>
+                            setActionCount(
+                              value
+                            );
 
-                      <option value="3">
-                        3 Aktionen / Assists
-                      </option>
+                            setActionScreenPoints(
+                              []
+                            );
 
-                    </select>
-                  </label>
+                            setFinishScreenPoint(
+                              null
+                            );
+                          }
+                        }
+                      >
+
+                        <option value="1">
+                          1 Aktion / Assist
+                        </option>
+
+                        <option value="2">
+                          2 Aktionen / Assists
+                        </option>
+
+                        <option value="3">
+                          3 Aktionen / Assists
+                        </option>
+
+                      </select>
+                    </label>
+
+                  )}
 
 
                   <label>
@@ -3858,7 +3930,7 @@ function App() {
                             }
                           >
                             {item ||
-                              "Bitte auswählen"}
+                            "Bitte auswählen"}
                           </option>
 
                         )
@@ -3897,7 +3969,7 @@ function App() {
                             }
                           >
                             {item ||
-                              "Bitte auswählen"}
+                            "Bitte auswählen"}
                           </option>
 
                         )
@@ -3936,7 +4008,7 @@ function App() {
                             }
                           >
                             {item ||
-                              "Bitte auswählen"}
+                            "Bitte auswählen"}
                           </option>
 
                         )
@@ -3956,7 +4028,7 @@ function App() {
 
                       onChange={
                         event =>
-                          setSetPieceType(
+                          handleSetPieceChange(
                             event.target.value
                           )
                       }
@@ -3975,7 +4047,7 @@ function App() {
                             }
                           >
                             {item ||
-                              "Kein Standard"}
+                            "Kein Standard"}
                           </option>
 
                         )
@@ -4009,12 +4081,15 @@ function App() {
 
                   <p className="pitch-help">
 
-                    {actionScreenPoints.length <
-                    actionCount
-                      ? `Klick ${actionScreenPoints.length + 1}: Aktion ${actionScreenPoints.length + 1} setzen`
-                      : !finishScreenPoint
-                        ? `Klick ${actionCount + 1}: Abschluss setzen`
-                        : "Aktionskette vollständig gesetzt"}
+                    {setPieceType ===
+                    "Elfmeter"
+                      ? "Elfmeterpunkt automatisch gesetzt"
+                      : actionScreenPoints.length <
+                        actionCount
+                        ? `Klick ${actionScreenPoints.length + 1}: Aktion ${actionScreenPoints.length + 1} setzen`
+                        : !finishScreenPoint
+                          ? `Klick ${actionCount + 1}: Abschluss setzen`
+                          : "Aktionskette vollständig gesetzt"}
 
                   </p>
 
@@ -4075,11 +4150,13 @@ function App() {
                                   : [])
                               ];
 
+
                             const next =
                               completePoints[
                                 index +
                                 1
                               ];
+
 
                             if (
                               !next
@@ -4091,18 +4168,23 @@ function App() {
                             return (
                               <line
                                 key={`input-line-${index}`}
+
                                 x1={
                                   point.x
                                 }
+
                                 y1={
                                   point.y
                                 }
+
                                 x2={
                                   next.x
                                 }
+
                                 y2={
                                   next.y
                                 }
+
                                 vectorEffect="non-scaling-stroke"
                               />
                             );
@@ -4131,8 +4213,7 @@ function App() {
                               `${point.y}%`
                           }}
                         >
-                          {index +
-                            1}
+                          {index + 1}
                         </div>
 
                       )
@@ -4160,8 +4241,30 @@ function App() {
                   </div>
 
 
-                  {actionDatabasePoints.length >
-                    0 && (
+                  {setPieceType ===
+                  "Elfmeter" && (
+                    <div className="card">
+
+                      <strong>
+                        Elfmeter
+                      </strong>
+
+                      <p>
+                        Abschlussposition automatisch:
+                        {" "}
+                        {eventType === "Tor"
+                          ? "gegnerischer Elfmeterpunkt"
+                          : "eigener Elfmeterpunkt"}
+                      </p>
+
+                    </div>
+                  )}
+
+
+                  {setPieceType !==
+                  "Elfmeter" &&
+                  actionDatabasePoints.length >
+                  0 && (
 
                     <div className="card">
 
@@ -4201,21 +4304,26 @@ function App() {
                   )}
 
 
-                  <button
-                    type="button"
+                  {setPieceType !==
+                  "Elfmeter" && (
 
-                    onClick={() => {
-                      setActionScreenPoints(
-                        []
-                      );
+                    <button
+                      type="button"
 
-                      setFinishScreenPoint(
-                        null
-                      );
-                    }}
-                  >
-                    Positionen löschen
-                  </button>
+                      onClick={() => {
+                        setActionScreenPoints(
+                          []
+                        );
+
+                        setFinishScreenPoint(
+                          null
+                        );
+                      }}
+                    >
+                      Positionen löschen
+                    </button>
+
+                  )}
 
                 </div>
 
@@ -4261,7 +4369,9 @@ function App() {
             )}
 
 
-            {/* MATCH GRAPHICS */}
+            {/* =================================================
+                MATCH GRAPHICS
+                ================================================= */}
 
             <div className="analysis-grid">
 
@@ -4285,7 +4395,9 @@ function App() {
             </div>
 
 
-            {/* EVENT LIST */}
+            {/* =================================================
+                EVENT LIST
+                ================================================= */}
 
             <div className="events-grid">
 
@@ -4297,7 +4409,7 @@ function App() {
 
 
                 {goals.length ===
-                  0 ? (
+                0 ? (
 
                   <p>
                     Keine Tore erfasst.
@@ -4322,7 +4434,7 @@ function App() {
 
 
                 {concededGoals.length ===
-                  0 ? (
+                0 ? (
 
                   <p>
                     Keine Gegentore erfasst.
