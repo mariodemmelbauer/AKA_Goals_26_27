@@ -158,10 +158,12 @@ const TEAMS: TeamName[] = [
   "Profis"
 ];
 
+
 const TEAM_SELECTIONS: TeamSelection[] = [
   "Alle Teams",
   ...TEAMS
 ];
+
 
 const PHASES = [
   "",
@@ -171,6 +173,7 @@ const PHASES = [
   "Standard",
   "Sonstiges"
 ];
+
 
 const CREATION_TYPES = [
   "",
@@ -184,12 +187,22 @@ const CREATION_TYPES = [
   "Sonstiges"
 ];
 
+
+/*
+ * Muss exakt der DB-Constraint entsprechen:
+ *
+ * One Touch
+ * Two Touch
+ * >2 Touches
+ */
+
 const FINISH_TOUCHES = [
   "",
   "One Touch",
-  "Two Touches",
+  "Two Touch",
   ">2 Touches"
 ];
+
 
 const SET_PIECE_TYPES = [
   "",
@@ -247,6 +260,7 @@ function getFinishPoint(
     return null;
   }
 
+
   return {
     x:
       Number(
@@ -262,7 +276,7 @@ function getFinishPoint(
 
 
 /* =====================================================
-   NORMALIZE ALL EVENTS TO TOP GOAL
+   NORMALIZE EXISTING DATA TO TOP GOAL
    ===================================================== */
 
 function flipPointToTopGoal(
@@ -289,14 +303,6 @@ function shouldFlipEventToTopGoal(
     return false;
   }
 
-  /*
-   * DB x:
-   * 0   = eigenes Tor
-   * 100 = gegnerisches Tor
-   *
-   * Alles unter x 50 wird für die Darstellung
-   * um 180 Grad gedreht.
-   */
 
   return finish.x <
     50;
@@ -374,10 +380,6 @@ function getAssistPoints(
   }
 
 
-  /*
-   * Alte Datensätze.
-   */
-
   if (
     event.assist_x != null &&
     event.assist_y != null
@@ -417,12 +419,14 @@ const FIRST_THIRD =
   100 /
   3;
 
+
 const SECOND_THIRD =
   (
     100 /
     3
   ) *
   2;
+
 
 const PENALTY_BOX_X =
   100 -
@@ -431,6 +435,7 @@ const PENALTY_BOX_X =
     105
   ) *
     100;
+
 
 const PENALTY_BOX_Y_MIN =
   (
@@ -443,12 +448,15 @@ const PENALTY_BOX_Y_MIN =
   ) *
   100;
 
+
 const PENALTY_BOX_Y_MAX =
   100 -
   PENALTY_BOX_Y_MIN;
 
+
 const BOX_LEFT_END =
   45;
+
 
 const BOX_CENTER_END =
   55;
@@ -464,12 +472,14 @@ function getHorizontalLane(
     return "linker Flügel";
   }
 
+
   if (
     y <
     40
   ) {
     return "linker Halbraum";
   }
+
 
   if (
     y <=
@@ -478,12 +488,14 @@ function getHorizontalLane(
     return "Zentrum";
   }
 
+
   if (
     y <=
     80
   ) {
     return "rechter Halbraum";
   }
+
 
   return "rechter Flügel";
 }
@@ -501,6 +513,7 @@ function calculateZone(
         x
       )
     );
+
 
   const safeY =
     Math.max(
@@ -531,12 +544,14 @@ function calculateZone(
       return "Box links";
     }
 
+
     if (
       safeY <=
       BOX_CENTER_END
     ) {
       return "Box zentral";
     }
+
 
     return "Box rechts";
   }
@@ -589,6 +604,15 @@ function calculateZone(
 function getPenaltyScreenPoint(
   eventType: EventType
 ): ScreenPoint {
+  /*
+   * Neue Eingabe soll immer Richtung oberes Tor erfolgen.
+   *
+   * Daher setzen wir auch bei Gegentor
+   * den oberen Elfmeterpunkt.
+   *
+   * DB x = 89.52 entspricht oberem Angriffstor.
+   */
+
   const distance =
     (
       11 /
@@ -596,12 +620,14 @@ function getPenaltyScreenPoint(
     ) *
     100;
 
+
   const databaseX =
-    eventType ===
-    "Tor"
-      ? 100 -
-        distance
-      : distance;
+    100 -
+    distance;
+
+
+  void eventType;
+
 
   return databaseToScreen(
     databaseX,
@@ -611,7 +637,7 @@ function getPenaltyScreenPoint(
 
 
 /* =====================================================
-   STATISTICS
+   STATS
    ===================================================== */
 
 function percentage(
@@ -624,6 +650,7 @@ function percentage(
   ) {
     return 0;
   }
+
 
   return Math.round(
     (
@@ -650,6 +677,7 @@ function createStats(
       const key =
         value ||
         "Nicht angegeben";
+
 
       map.set(
         key,
@@ -715,6 +743,7 @@ function zoneStats(
           event
         );
 
+
       const flip =
         shouldFlipEventToTopGoal(
           finish
@@ -734,6 +763,7 @@ function zoneStats(
               flip
             );
 
+
           zones.push(
             calculateZone(
               displayPoint.x,
@@ -741,6 +771,7 @@ function zoneStats(
             )
           );
         }
+
 
         return;
       }
@@ -957,7 +988,7 @@ const ZONE_CENTERS:
 
 
 /* =====================================================
-   FIELD MARKINGS
+   PITCH MARKINGS
    ===================================================== */
 
 function PitchMarkings() {
@@ -997,8 +1028,6 @@ function PitchMarkings() {
         />
 
 
-        {/* TOP PENALTY AREA */}
-
         <rect
           x="20.35"
           y="0"
@@ -1006,6 +1035,7 @@ function PitchMarkings() {
           height="15.71"
           className="pitch-white-line"
         />
+
 
         <rect
           x="36.53"
@@ -1016,8 +1046,6 @@ function PitchMarkings() {
         />
 
 
-        {/* BOTTOM PENALTY AREA */}
-
         <rect
           x="20.35"
           y="84.29"
@@ -1025,6 +1053,7 @@ function PitchMarkings() {
           height="15.71"
           className="pitch-white-line"
         />
+
 
         <rect
           x="36.53"
@@ -1035,14 +1064,13 @@ function PitchMarkings() {
         />
 
 
-        {/* PENALTY SPOTS */}
-
         <circle
           cx="50"
           cy="10.48"
           r="0.7"
           className="pitch-spot"
         />
+
 
         <circle
           cx="50"
@@ -1052,38 +1080,14 @@ function PitchMarkings() {
         />
 
 
-        {/* PENALTY ARCS */}
-
         <path
           d="M39.2 15.71 A13.5 8.7 0 0 0 60.8 15.71"
           className="pitch-white-line"
         />
 
+
         <path
           d="M39.2 84.29 A13.5 8.7 0 0 1 60.8 84.29"
-          className="pitch-white-line"
-        />
-
-
-        {/* CORNERS */}
-
-        <path
-          d="M0.5 5 A5 5 0 0 0 5.5 0.5"
-          className="pitch-white-line"
-        />
-
-        <path
-          d="M94.5 0.5 A5 5 0 0 0 99.5 5"
-          className="pitch-white-line"
-        />
-
-        <path
-          d="M0.5 95 A5 5 0 0 1 5.5 99.5"
-          className="pitch-white-line"
-        />
-
-        <path
-          d="M94.5 99.5 A5 5 0 0 1 99.5 95"
           className="pitch-white-line"
         />
 
@@ -1093,6 +1097,7 @@ function PitchMarkings() {
       <div
         className="pitch-goal pitch-goal-top"
       />
+
 
       <div
         className="pitch-goal pitch-goal-bottom"
@@ -1119,7 +1124,6 @@ function ZoneOverlay({
 
       <div className="zone-third-line zone-third-two" />
 
-
       <div className="zone-lane-line zone-lane-one" />
 
       <div className="zone-lane-line zone-lane-two" />
@@ -1127,7 +1131,6 @@ function ZoneOverlay({
       <div className="zone-lane-line zone-lane-three" />
 
       <div className="zone-lane-line zone-lane-four" />
-
 
       <div className="zone14-highlight" />
 
@@ -1207,11 +1210,6 @@ function AnalysisPitch({
         }
 
 
-        /*
-         * Chain und Finish verwenden
-         * Abschlusszonen für Prozentwerte.
-         */
-
         return zoneStats(
           events,
           "finish"
@@ -1246,8 +1244,6 @@ function AnalysisPitch({
         )}
 
 
-        {/* PASS / ACTION CHAINS */}
-
         {mode ===
         "chain" && (
 
@@ -1266,6 +1262,7 @@ function AnalysisPitch({
                   getAssistPoints(
                     event
                   );
+
 
                 const finish =
                   getFinishPoint(
@@ -1375,8 +1372,6 @@ function AnalysisPitch({
         )}
 
 
-        {/* ASSISTS */}
-
         {(mode ===
           "chain" ||
           mode ===
@@ -1453,8 +1448,6 @@ function AnalysisPitch({
             }
           )}
 
-
-        {/* FINISHES */}
 
         {(mode ===
           "chain" ||
@@ -1668,10 +1661,6 @@ function App() {
     );
 
 
-  /* =====================================================
-     MATCH STATES
-     ===================================================== */
-
   const [
     matches,
     setMatches
@@ -1780,10 +1769,6 @@ function App() {
       false
     );
 
-
-  /* =====================================================
-     EVENT STATES
-     ===================================================== */
 
   const [
     events,
@@ -1950,10 +1935,6 @@ function App() {
       false
     );
 
-
-  /* =====================================================
-     MOVE EVENT STATES
-     ===================================================== */
 
   const [
     eventToMove,
@@ -2284,7 +2265,7 @@ function App() {
 
 
   /* =====================================================
-     TEAM SELECTION
+     TEAM SELECT
      ===================================================== */
 
   const selectTeam =
@@ -2350,6 +2331,7 @@ function App() {
           team
         );
 
+
         return;
       }
 
@@ -2361,7 +2343,7 @@ function App() {
 
 
   /* =====================================================
-     LOAD MATCH EVENTS
+     LOAD EVENTS
      ===================================================== */
 
   const loadEvents =
@@ -2437,6 +2419,7 @@ function App() {
           "Bitte Datum und Gegner eingeben."
         );
 
+
         return;
       }
 
@@ -2498,6 +2481,7 @@ function App() {
             data.error ??
             "Spiel konnte nicht gespeichert werden"
           );
+
 
           return;
         }
@@ -2665,6 +2649,7 @@ function App() {
           )
         );
 
+
         return;
       }
 
@@ -2731,6 +2716,7 @@ function App() {
           ]
         );
 
+
         return;
       }
 
@@ -2742,13 +2728,10 @@ function App() {
           point
         );
 
+
         return;
       }
 
-
-      /*
-       * Neue Kette beginnen.
-       */
 
       setActionScreenPoints(
         [
@@ -2841,6 +2824,7 @@ function App() {
           "Bitte Abschlussposition setzen."
         );
 
+
         return;
       }
 
@@ -2858,6 +2842,7 @@ function App() {
         setSaveStatus(
           "Bitte alle Aktionen vor dem Abschluss setzen."
         );
+
 
         return;
       }
@@ -2986,22 +2971,24 @@ function App() {
 
 
         if (
-		  !response.ok
-		) {
-		  console.error(
-			"Event speichern fehlgeschlagen:",
-			data
-		  );
+          !response.ok
+        ) {
+          console.error(
+            "Event speichern fehlgeschlagen:",
+            data
+          );
 
-  setSaveStatus(
-    data.details
-      ? `${data.error ?? "Speichern fehlgeschlagen"} – ${data.details}`
-      : data.error ??
-        "Speichern fehlgeschlagen"
-  );
 
-  return;
-}
+          setSaveStatus(
+            data.details
+              ? `${data.error ?? "Speichern fehlgeschlagen"} – ${data.details}`
+              : data.error ??
+                "Speichern fehlgeschlagen"
+          );
+
+
+          return;
+        }
 
 
         await loadEvents(
@@ -3012,6 +2999,9 @@ function App() {
         setShowEventForm(
           false
         );
+
+
+        setSaveStatus("");
       } finally {
         setSavingEvent(
           false
@@ -3245,6 +3235,7 @@ function App() {
             "Verschieben fehlgeschlagen"
           );
 
+
           return;
         }
 
@@ -3386,10 +3377,6 @@ function App() {
     );
 
 
-  /* =====================================================
-     MATCH DATA
-     ===================================================== */
-
   const goals =
     events.filter(
       event =>
@@ -3453,10 +3440,6 @@ function App() {
         ? match.opponent
         : "Unbekannter Gegner";
 
-
-  /* =====================================================
-     EVENT LIST
-     ===================================================== */
 
   const renderEvent =
     (
@@ -3586,6 +3569,7 @@ function App() {
         {userName && (
           <p>
             Angemeldet als{" "}
+
             <strong>
               {userName}
             </strong>
@@ -3685,8 +3669,6 @@ function App() {
         </div>
 
 
-        {/* NAVIGATION */}
-
         {selectedTeam !==
         "Alle Teams" && (
 
@@ -3704,6 +3686,7 @@ function App() {
                 setViewMode(
                   "matches"
                 );
+
 
                 setSelectedMatch(
                   null
@@ -3727,9 +3710,11 @@ function App() {
                   "analysis"
                 );
 
+
                 setSelectedMatch(
                   null
                 );
+
 
                 void loadTeamEvents(
                   selectedTeam
@@ -3743,10 +3728,6 @@ function App() {
 
         )}
 
-
-        {/* =================================================
-            ANALYSIS
-            ================================================= */}
 
         {viewMode ===
         "analysis" ? (
@@ -3767,6 +3748,7 @@ function App() {
                 <div className="overall-summary-title">
                   Gesamtauswertung aller Teams
                 </div>
+
 
                 <div className="overall-summary-subtitle">
                   U15 · U16 · U18 · Junge Wikinger · Profis
@@ -3790,7 +3772,6 @@ function App() {
                 <div className="analysis-kpis">
 
                   <div className="kpi-card">
-
                     <span>
                       Tore
                     </span>
@@ -3798,12 +3779,10 @@ function App() {
                     <strong>
                       {teamGoals.length}
                     </strong>
-
                   </div>
 
 
                   <div className="kpi-card">
-
                     <span>
                       Gegentore
                     </span>
@@ -3811,12 +3790,10 @@ function App() {
                     <strong>
                       {teamConceded.length}
                     </strong>
-
                   </div>
 
 
                   <div className="kpi-card">
-
                     <span>
                       Tordifferenz
                     </span>
@@ -3825,12 +3802,10 @@ function App() {
                       {teamGoals.length -
                       teamConceded.length}
                     </strong>
-
                   </div>
 
 
                   <div className="kpi-card">
-
                     <span>
                       Spiele
                     </span>
@@ -3838,13 +3813,10 @@ function App() {
                     <strong>
                       {matches.length}
                     </strong>
-
                   </div>
 
                 </div>
 
-
-                {/* ASSIST + FINISH */}
 
                 <h2 className="analysis-heading">
                   Assist + Abschluss
@@ -3877,8 +3849,6 @@ function App() {
                 </div>
 
 
-                {/* FINISHES */}
-
                 <h2 className="analysis-heading">
                   Abschlüsse
                 </h2>
@@ -3910,8 +3880,6 @@ function App() {
                 </div>
 
 
-                {/* ASSISTS */}
-
                 <h2 className="analysis-heading">
                   Assists
                 </h2>
@@ -3942,8 +3910,6 @@ function App() {
 
                 </div>
 
-
-                {/* ZONE STATISTICS */}
 
                 <h2 className="analysis-heading">
                   Abschluss-Zonen
@@ -4052,10 +4018,6 @@ function App() {
 
         ) : selectedMatch ? (
 
-          /* =================================================
-             MATCH DETAIL
-             ================================================= */
-
           <section>
 
             <button
@@ -4064,15 +4026,19 @@ function App() {
                   null
                 );
 
+
                 setEvents([]);
+
 
                 setShowEventForm(
                   false
                 );
 
+
                 setEventToMove(
                   null
                 );
+
 
                 setEventToDelete(
                   null
@@ -4126,8 +4092,6 @@ function App() {
 
             </div>
 
-
-            {/* MOVE EVENT */}
 
             {eventToMove && (
 
@@ -4294,8 +4258,6 @@ function App() {
             )}
 
 
-            {/* DELETE EVENT */}
-
             {eventToDelete && (
 
               <div className="delete-confirm-box">
@@ -4338,8 +4300,6 @@ function App() {
 
             )}
 
-
-            {/* EVENT FORM */}
 
             {showEventForm && (
 
@@ -4660,12 +4620,12 @@ function App() {
 
                     {setPieceType ===
                     "Elfmeter"
-                      ? "Elfmeterpunkt automatisch gesetzt"
+                      ? "Elfmeterpunkt automatisch oben gesetzt"
                       : actionScreenPoints.length <
                         actionCount
                         ? `Aktion ${actionScreenPoints.length + 1} setzen`
                         : !finishScreenPoint
-                          ? "Abschluss setzen"
+                          ? "Abschluss oben setzen"
                           : "Aktionskette vollständig"}
 
                   </p>
@@ -4875,8 +4835,6 @@ function App() {
             )}
 
 
-            {/* MATCH GRAPHICS */}
-
             <div className="analysis-grid">
 
               <AnalysisPitch
@@ -4902,8 +4860,6 @@ function App() {
 
             </div>
 
-
-            {/* EVENT LIST */}
 
             <div className="events-grid">
 
@@ -4961,10 +4917,6 @@ function App() {
           </section>
 
         ) : (
-
-          /* =================================================
-             MATCH LIST
-             ================================================= */
 
           <section className="matches-section">
 
