@@ -4062,8 +4062,7 @@ function App() {
                         .map(
                           (
                             point,
-                            index,
-                            points
+                            index
                           ) => {
                             const completePoints =
                               [
