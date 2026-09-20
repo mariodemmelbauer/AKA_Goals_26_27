@@ -2986,15 +2986,22 @@ function App() {
 
 
         if (
-          !response.ok
-        ) {
-          setSaveStatus(
-            data.error ??
-            "Speichern fehlgeschlagen"
-          );
+		  !response.ok
+		) {
+		  console.error(
+			"Event speichern fehlgeschlagen:",
+			data
+		  );
 
-          return;
-        }
+  setSaveStatus(
+    data.details
+      ? `${data.error ?? "Speichern fehlgeschlagen"} – ${data.details}`
+      : data.error ??
+        "Speichern fehlgeschlagen"
+  );
+
+  return;
+}
 
 
         await loadEvents(
