@@ -35,10 +35,6 @@ const JWKS_V1 =
   );
 
 
-/* =========================================================
-   TYPES
-   ========================================================= */
-
 type AssistPoint = {
   order: number;
   x: number;
@@ -56,19 +52,14 @@ type CreateMatchBody = {
 
 type CreateEventBody = {
   match_id?: number | string;
-
   team?: string;
-
   event_type?: string;
-
   minute?: number | null;
 
   scorer?: string | null;
-
   assister?: string | null;
 
   phase?: string | null;
-
   creation_type?: string | null;
 
   assist_x?: number | null;
@@ -83,7 +74,6 @@ type CreateEventBody = {
   assist_points?: unknown;
 
   finish_touch?: string | null;
-
   set_piece_type?: string | null;
 
   comment?: string | null;
@@ -134,7 +124,6 @@ async function validateTeamsToken(
       ""
     );
 
-
   if (
     version ===
     "2.0"
@@ -163,7 +152,6 @@ async function validateTeamsToken(
 
     return result.payload;
   }
-
 
   const result =
     await jwtVerify(
@@ -301,7 +289,7 @@ async function supabaseRequest(
 
 
 /* =========================================================
-   ASSIST POINT VALIDATION
+   ASSIST POINTS
    ========================================================= */
 
 function normalizeAssistPoints(
@@ -361,14 +349,10 @@ function normalizeAssistPoints(
       }
 
       if (
-        x <
-          0 ||
-        x >
-          100 ||
-        y <
-          0 ||
-        y >
-          100
+        x < 0 ||
+        x > 100 ||
+        y < 0 ||
+        y > 100
       ) {
         return;
       }
@@ -403,7 +387,7 @@ function normalizeAssistPoints(
 
 
 /* =========================================================
-   /api/me
+   ME
    ========================================================= */
 
 async function handleMe(
@@ -485,7 +469,9 @@ async function getMatches(
     "matches?select=*";
 
   if (
-    team
+    team &&
+    team !==
+      "Alle Teams"
   ) {
     query +=
       `&team=eq.${encodeURIComponent(
@@ -495,7 +481,6 @@ async function getMatches(
 
   query +=
     "&order=match_date.asc";
-
 
   const response =
     await supabaseRequest(
@@ -559,7 +544,6 @@ async function createMatch(
     );
   }
 
-
   const team =
     body.team?.trim();
 
@@ -568,7 +552,6 @@ async function createMatch(
 
   const opponent =
     body.opponent?.trim();
-
 
   if (
     !team
@@ -585,6 +568,21 @@ async function createMatch(
     );
   }
 
+  if (
+    team ===
+    "Alle Teams"
+  ) {
+    return Response.json(
+      {
+        error:
+          "Für Alle Teams kann kein Spiel angelegt werden"
+      },
+      {
+        status:
+          400
+      }
+    );
+  }
 
   if (
     !matchDate
@@ -601,7 +599,6 @@ async function createMatch(
     );
   }
 
-
   if (
     !opponent
   ) {
@@ -617,7 +614,6 @@ async function createMatch(
     );
   }
 
-
   const createdBy =
     typeof user.preferred_username ===
       "string"
@@ -629,7 +625,6 @@ async function createMatch(
             "string"
           ? user.name
           : null;
-
 
   const match = {
     team,
@@ -651,7 +646,6 @@ async function createMatch(
       createdBy
   };
 
-
   const response =
     await supabaseRequest(
       env,
@@ -671,7 +665,6 @@ async function createMatch(
           )
       }
     );
-
 
   if (
     !response.ok
@@ -693,10 +686,8 @@ async function createMatch(
     );
   }
 
-
   const created =
     await response.json();
-
 
   return Response.json(
     {
@@ -732,7 +723,6 @@ async function deleteMatch(
       "id"
     );
 
-
   if (
     !matchId
   ) {
@@ -747,7 +737,6 @@ async function deleteMatch(
       }
     );
   }
-
 
   const response =
     await supabaseRequest(
@@ -767,7 +756,6 @@ async function deleteMatch(
         }
       }
     );
-
 
   if (
     !response.ok
@@ -789,10 +777,8 @@ async function deleteMatch(
     );
   }
 
-
   const deleted =
     await response.json();
-
 
   if (
     !Array.isArray(
@@ -812,7 +798,6 @@ async function deleteMatch(
       }
     );
   }
-
 
   return Response.json({
     success:
@@ -836,13 +821,7 @@ async function handleMatches(
       await validateTeamsToken(
         request
       );
-  } catch (
-    error
-  ) {
-    console.error(
-      error
-    );
-
+  } catch {
     return Response.json(
       {
         error:
@@ -855,7 +834,6 @@ async function handleMatches(
     );
   }
 
-
   const envError =
     checkSupabaseEnv(
       env
@@ -867,7 +845,6 @@ async function handleMatches(
     return envError;
   }
 
-
   if (
     request.method ===
     "GET"
@@ -877,7 +854,6 @@ async function handleMatches(
       env
     );
   }
-
 
   if (
     request.method ===
@@ -890,7 +866,6 @@ async function handleMatches(
     );
   }
 
-
   if (
     request.method ===
     "DELETE"
@@ -901,7 +876,6 @@ async function handleMatches(
     );
   }
 
-
   return Response.json(
     {
       error:
@@ -909,12 +883,7 @@ async function handleMatches(
     },
     {
       status:
-        405,
-
-      headers: {
-        Allow:
-          "GET, POST, DELETE"
-      }
+        405
     }
   );
 }
@@ -939,7 +908,6 @@ async function handleTeamEvents(
     return authError;
   }
 
-
   const envError =
     checkSupabaseEnv(
       env
@@ -951,7 +919,6 @@ async function handleTeamEvents(
     return envError;
   }
 
-
   const url =
     new URL(
       request.url
@@ -961,7 +928,6 @@ async function handleTeamEvents(
     url.searchParams.get(
       "team"
     );
-
 
   if (
     !team
@@ -978,16 +944,27 @@ async function handleTeamEvents(
     );
   }
 
+  let query =
+    "goal_events?select=*";
+
+  if (
+    team !==
+    "Alle Teams"
+  ) {
+    query +=
+      `&team=eq.${encodeURIComponent(
+        team
+      )}`;
+  }
+
+  query +=
+    "&order=minute.asc";
 
   const response =
     await supabaseRequest(
       env,
-
-      `goal_events?select=*&team=eq.${encodeURIComponent(
-        team
-      )}&order=minute.asc`
+      query
     );
-
 
   if (
     !response.ok
@@ -1009,10 +986,8 @@ async function handleTeamEvents(
     );
   }
 
-
   const events =
     await response.json();
-
 
   return Response.json({
     success:
@@ -1024,7 +999,7 @@ async function handleTeamEvents(
 
 
 /* =========================================================
-   GET EVENTS
+   EVENTS
    ========================================================= */
 
 async function getEvents(
@@ -1041,7 +1016,6 @@ async function getEvents(
       "match_id"
     );
 
-
   if (
     !matchId
   ) {
@@ -1057,7 +1031,6 @@ async function getEvents(
     );
   }
 
-
   const response =
     await supabaseRequest(
       env,
@@ -1066,7 +1039,6 @@ async function getEvents(
         matchId
       )}&order=minute.asc`
     );
-
 
   if (
     !response.ok
@@ -1088,10 +1060,8 @@ async function getEvents(
     );
   }
 
-
   const events =
     await response.json();
-
 
   return Response.json({
     success:
@@ -1101,10 +1071,6 @@ async function getEvents(
   });
 }
 
-
-/* =========================================================
-   CREATE EVENT
-   ========================================================= */
 
 async function createEvent(
   request: Request,
@@ -1129,7 +1095,6 @@ async function createEvent(
     );
   }
 
-
   if (
     body.match_id == null ||
     body.match_id ===
@@ -1147,7 +1112,6 @@ async function createEvent(
     );
   }
 
-
   if (
     !body.team ||
     !body.team.trim()
@@ -1163,7 +1127,6 @@ async function createEvent(
       }
     );
   }
-
 
   if (
     body.event_type !==
@@ -1183,12 +1146,10 @@ async function createEvent(
     );
   }
 
-
   const assistPoints =
     normalizeAssistPoints(
       body.assist_points
     );
-
 
   const lastAssist =
     assistPoints.length >
@@ -1198,7 +1159,6 @@ async function createEvent(
           1
         ]
       : null;
-
 
   const event = {
     match_id:
@@ -1230,11 +1190,6 @@ async function createEvent(
       body.creation_type?.trim() ||
       null,
 
-    /*
-     * Legacy-Felder bleiben kompatibel:
-     * letzter Assistpunkt vor Abschluss.
-     */
-
     assist_x:
       lastAssist?.x ??
       body.assist_x ??
@@ -1249,10 +1204,6 @@ async function createEvent(
       lastAssist?.zone ??
       body.assist_zone?.trim() ??
       null,
-
-    /*
-     * Alle Voraktionen.
-     */
 
     assist_points:
       assistPoints.length >
@@ -1285,7 +1236,6 @@ async function createEvent(
       null
   };
 
-
   const response =
     await supabaseRequest(
       env,
@@ -1305,7 +1255,6 @@ async function createEvent(
           )
       }
     );
-
 
   if (
     !response.ok
@@ -1327,10 +1276,8 @@ async function createEvent(
     );
   }
 
-
   const created =
     await response.json();
-
 
   return Response.json(
     {
@@ -1352,10 +1299,6 @@ async function createEvent(
 }
 
 
-/* =========================================================
-   MOVE EVENT
-   ========================================================= */
-
 async function moveEvent(
   request: Request,
   env: Env
@@ -1369,7 +1312,6 @@ async function moveEvent(
     url.searchParams.get(
       "id"
     );
-
 
   if (
     !eventId
@@ -1385,7 +1327,6 @@ async function moveEvent(
       }
     );
   }
-
 
   let body:
     MoveEventBody;
@@ -1406,21 +1347,21 @@ async function moveEvent(
     );
   }
 
-
   const targetTeam =
     body.team?.trim();
 
   const targetMatchId =
     body.match_id;
 
-
   if (
-    !targetTeam
+    !targetTeam ||
+    targetTeam ===
+      "Alle Teams"
   ) {
     return Response.json(
       {
         error:
-          "Ziel-Team fehlt"
+          "Ungültiges Ziel-Team"
       },
       {
         status:
@@ -1428,7 +1369,6 @@ async function moveEvent(
       }
     );
   }
-
 
   if (
     targetMatchId == null ||
@@ -1447,13 +1387,7 @@ async function moveEvent(
     );
   }
 
-
-  /*
-   * Prüfen, ob das ausgewählte Zielspiel
-   * wirklich zum Ziel-Team gehört.
-   */
-
-  const targetMatchResponse =
+  const checkResponse =
     await supabaseRequest(
       env,
 
@@ -1466,12 +1400,11 @@ async function moveEvent(
       )}&limit=1`
     );
 
-
   if (
-    !targetMatchResponse.ok
+    !checkResponse.ok
   ) {
     const details =
-      await targetMatchResponse.text();
+      await checkResponse.text();
 
     return Response.json(
       {
@@ -1482,30 +1415,25 @@ async function moveEvent(
       },
       {
         status:
-          targetMatchResponse.status
+          checkResponse.status
       }
     );
   }
 
-
   const targetMatches =
-    (await targetMatchResponse.json()) as Array<{
+    await checkResponse.json() as Array<{
       id?: number | string;
       team?: string;
     }>;
 
-
   if (
-    !Array.isArray(
-      targetMatches
-    ) ||
     targetMatches.length ===
-      0
+    0
   ) {
     return Response.json(
       {
         error:
-          "Das Ziel-Spiel gehört nicht zum ausgewählten Team"
+          "Ziel-Spiel gehört nicht zum Ziel-Team"
       },
       {
         status:
@@ -1513,7 +1441,6 @@ async function moveEvent(
       }
     );
   }
-
 
   const response =
     await supabaseRequest(
@@ -1543,7 +1470,6 @@ async function moveEvent(
       }
     );
 
-
   if (
     !response.ok
   ) {
@@ -1564,44 +1490,22 @@ async function moveEvent(
     );
   }
 
-
   const updated =
     await response.json();
-
-
-  if (
-    !Array.isArray(
-      updated
-    ) ||
-    updated.length ===
-      0
-  ) {
-    return Response.json(
-      {
-        error:
-          "Ereignis wurde nicht gefunden"
-      },
-      {
-        status:
-          404
-      }
-    );
-  }
-
 
   return Response.json({
     success:
       true,
 
     event:
-      updated[0]
+      Array.isArray(
+        updated
+      )
+        ? updated[0]
+        : updated
   });
 }
 
-
-/* =========================================================
-   DELETE EVENT
-   ========================================================= */
 
 async function deleteEvent(
   request: Request,
@@ -1617,7 +1521,6 @@ async function deleteEvent(
       "id"
     );
 
-
   if (
     !eventId
   ) {
@@ -1632,7 +1535,6 @@ async function deleteEvent(
       }
     );
   }
-
 
   const response =
     await supabaseRequest(
@@ -1652,7 +1554,6 @@ async function deleteEvent(
         }
       }
     );
-
 
   if (
     !response.ok
@@ -1674,7 +1575,6 @@ async function deleteEvent(
     );
   }
 
-
   return Response.json({
     success:
       true,
@@ -1684,10 +1584,6 @@ async function deleteEvent(
   });
 }
 
-
-/* =========================================================
-   EVENTS ROUTE
-   ========================================================= */
 
 async function handleEvents(
   request: Request,
@@ -1704,7 +1600,6 @@ async function handleEvents(
     return authError;
   }
 
-
   const envError =
     checkSupabaseEnv(
       env
@@ -1716,7 +1611,6 @@ async function handleEvents(
     return envError;
   }
 
-
   if (
     request.method ===
     "GET"
@@ -1726,7 +1620,6 @@ async function handleEvents(
       env
     );
   }
-
 
   if (
     request.method ===
@@ -1738,7 +1631,6 @@ async function handleEvents(
     );
   }
 
-
   if (
     request.method ===
     "PATCH"
@@ -1748,7 +1640,6 @@ async function handleEvents(
       env
     );
   }
-
 
   if (
     request.method ===
@@ -1760,7 +1651,6 @@ async function handleEvents(
     );
   }
 
-
   return Response.json(
     {
       error:
@@ -1768,12 +1658,7 @@ async function handleEvents(
     },
     {
       status:
-        405,
-
-      headers: {
-        Allow:
-          "GET, POST, PATCH, DELETE"
-      }
+        405
     }
   );
 }
@@ -1793,7 +1678,6 @@ export default {
         request.url
       );
 
-
     if (
       url.pathname ===
       "/api/me"
@@ -1802,7 +1686,6 @@ export default {
         request
       );
     }
-
 
     if (
       url.pathname ===
@@ -1814,7 +1697,6 @@ export default {
       );
     }
 
-
     if (
       url.pathname ===
       "/api/team-events"
@@ -1825,7 +1707,6 @@ export default {
       );
     }
 
-
     if (
       url.pathname ===
       "/api/events"
@@ -1835,7 +1716,6 @@ export default {
         env
       );
     }
-
 
     return env.ASSETS.fetch(
       request
