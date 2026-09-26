@@ -217,8 +217,12 @@ function databaseToScreen(
   databaseY: number
 ): ScreenPoint {
   return {
-    x: databaseY,
-    y: 100 - databaseX
+    x:
+      databaseY,
+
+    y:
+      100 -
+      databaseX
   };
 }
 
@@ -228,8 +232,12 @@ function screenToDatabase(
   screenY: number
 ): DatabasePoint {
   return {
-    x: 100 - screenY,
-    y: screenX
+    x:
+      100 -
+      screenY,
+
+    y:
+      screenX
   };
 }
 
@@ -244,14 +252,17 @@ function getFinishPoint(
     return null;
   }
 
-  return {
-    x: Number(
-      event.finish_x
-    ),
 
-    y: Number(
-      event.finish_y
-    )
+  return {
+    x:
+      Number(
+        event.finish_x
+      ),
+
+    y:
+      Number(
+        event.finish_y
+      )
   };
 }
 
@@ -264,8 +275,13 @@ function flipPointToTopGoal(
   point: DatabasePoint
 ): DatabasePoint {
   return {
-    x: 100 - point.x,
-    y: 100 - point.y
+    x:
+      100 -
+      point.x,
+
+    y:
+      100 -
+      point.y
   };
 }
 
@@ -279,7 +295,9 @@ function shouldFlipEventToTopGoal(
     return false;
   }
 
-  return finish.x < 50;
+
+  return finish.x <
+    50;
 }
 
 
@@ -306,7 +324,8 @@ function getAssistPoints(
     Array.isArray(
       event.assist_points
     ) &&
-    event.assist_points.length > 0
+    event.assist_points.length >
+      0
   ) {
     return event.assist_points
       .filter(
@@ -328,7 +347,8 @@ function getAssistPoints(
           index
         ) => ({
           order:
-            index + 1,
+            index +
+            1,
 
           x:
             Number(
@@ -358,15 +378,18 @@ function getAssistPoints(
   ) {
     return [
       {
-        order: 1,
+        order:
+          1,
 
-        x: Number(
-          event.assist_x
-        ),
+        x:
+          Number(
+            event.assist_x
+          ),
 
-        y: Number(
-          event.assist_y
-        ),
+        y:
+          Number(
+            event.assist_y
+          ),
 
         zone:
           event.assist_zone ??
@@ -374,6 +397,7 @@ function getAssistPoints(
       }
     ];
   }
+
 
   return [];
 }
@@ -384,17 +408,25 @@ function getAssistPoints(
    ===================================================== */
 
 const FIRST_THIRD =
-  100 / 3;
+  100 /
+  3;
 
 
 const SECOND_THIRD =
-  (100 / 3) * 2;
+  (
+    100 /
+    3
+  ) *
+  2;
 
 
 const PENALTY_BOX_X =
   100 -
-  (16.5 / 105) *
-  100;
+  (
+    16.5 /
+    105
+  ) *
+    100;
 
 
 const PENALTY_BOX_Y_MIN =
@@ -414,40 +446,59 @@ const PENALTY_BOX_Y_MAX =
   PENALTY_BOX_Y_MIN;
 
 
+/*
+ * Wichtig:
+ *
+ * Die Box wird genauso in drei sichtbare
+ * Zonen geteilt wie unser Overlay:
+ *
+ * links    = 20 - 40
+ * zentral  = 40 - 60
+ * rechts   = 60 - 80
+ */
+
 const BOX_LEFT_END =
-  45;
+  40;
 
 
 const BOX_CENTER_END =
-  55;
+  60;
 
 
 function getHorizontalLane(
   y: number
 ): string {
   if (
-    y < 20
+    y <
+    20
   ) {
     return "linker Flügel";
   }
 
+
   if (
-    y < 40
+    y <
+    40
   ) {
     return "linker Halbraum";
   }
 
+
   if (
-    y <= 60
+    y <=
+    60
   ) {
     return "Zentrum";
   }
 
+
   if (
-    y <= 80
+    y <=
+    80
   ) {
     return "rechter Halbraum";
   }
+
 
   return "rechter Flügel";
 }
@@ -478,35 +529,63 @@ function calculateZone(
 
 
   const insideAttackingBox =
-    safeX >= PENALTY_BOX_X &&
-    safeY >= PENALTY_BOX_Y_MIN &&
-    safeY <= PENALTY_BOX_Y_MAX;
+    safeX >=
+      PENALTY_BOX_X &&
+    safeY >=
+      PENALTY_BOX_Y_MIN &&
+    safeY <=
+      PENALTY_BOX_Y_MAX;
 
+
+  /*
+   * BOX
+   *
+   * Strafraum liegt ungefähr zwischen
+   * y 20.35 und y 79.65.
+   *
+   * Innerhalb davon:
+   *
+   * 20.35 - 40 = Box links
+   * 40 - 60    = Box zentral
+   * 60 - 79.65 = Box rechts
+   */
 
   if (
     insideAttackingBox
   ) {
     if (
-      safeY < BOX_LEFT_END
+      safeY <
+      BOX_LEFT_END
     ) {
       return "Box links";
     }
 
+
     if (
-      safeY <= BOX_CENTER_END
+      safeY <=
+      BOX_CENTER_END
     ) {
       return "Box zentral";
     }
+
 
     return "Box rechts";
   }
 
 
+  /*
+   * ZONE 14
+   */
+
   if (
-    safeX >= SECOND_THIRD &&
-    safeX < PENALTY_BOX_X &&
-    safeY >= 40 &&
-    safeY <= 60
+    safeX >=
+      SECOND_THIRD &&
+    safeX <
+      PENALTY_BOX_X &&
+    safeY >=
+      40 &&
+    safeY <=
+      60
   ) {
     return "Zone 14 / Zentrum vor Box";
   }
@@ -519,14 +598,16 @@ function calculateZone(
 
 
   if (
-    safeX < FIRST_THIRD
+    safeX <
+    FIRST_THIRD
   ) {
     return `Aufbaudrittel – ${lane}`;
   }
 
 
   if (
-    safeX < SECOND_THIRD
+    safeX <
+    SECOND_THIRD
   ) {
     return `Mitteldrittel – ${lane}`;
   }
@@ -542,7 +623,10 @@ function calculateZone(
 
 function getPenaltyScreenPoint(): ScreenPoint {
   const distance =
-    (11 / 105) *
+    (
+      11 /
+      105
+    ) *
     100;
 
 
@@ -561,20 +645,16 @@ function getPenaltyScreenPoint(): ScreenPoint {
 function getCornerScreenPoint(
   setPieceType: string
 ): ScreenPoint | null {
-  /*
-   * Neue Eingabe läuft immer Richtung oberes Tor.
-   *
-   * 1 statt 0 bzw. 99 statt 100,
-   * damit der Punkt vollständig sichtbar bleibt.
-   */
-
   if (
     setPieceType ===
     "Eckball links"
   ) {
     return {
-      x: 1,
-      y: 1
+      x:
+        1,
+
+      y:
+        1
     };
   }
 
@@ -584,8 +664,11 @@ function getCornerScreenPoint(
     "Eckball rechts"
   ) {
     return {
-      x: 99,
-      y: 1
+      x:
+        99,
+
+      y:
+        1
     };
   }
 
@@ -595,30 +678,21 @@ function getCornerScreenPoint(
 
 
 /* =====================================================
-   STATS
+   STATISTICS
    ===================================================== */
-
-function percentage(
-  count: number,
-  total: number
-): number {
-  if (
-    total <= 0
-  ) {
-    return 0;
-  }
-
-  return Math.round(
-    (count / total) *
-    100
-  );
-}
-
 
 function createStats(
   values: string[]
 ): StatItem[] {
-  const map =
+  if (
+    values.length ===
+    0
+  ) {
+    return [];
+  }
+
+
+  const counts =
     new Map<
       string,
       number
@@ -632,38 +706,222 @@ function createStats(
         "Nicht angegeben";
 
 
-      map.set(
+      counts.set(
         key,
         (
-          map.get(
+          counts.get(
             key
           ) ??
           0
         ) +
-        1
+          1
       );
     }
   );
 
 
-  return Array.from(
-    map.entries()
-  )
-    .map(
+  const total =
+    values.length;
+
+
+  /*
+   * Erst exakte Prozentwerte berechnen.
+   *
+   * Beispiel:
+   *
+   * 7 / 13 = 53.846 %
+   * 4 / 13 = 30.769 %
+   * 1 / 13 =  7.692 %
+   * 1 / 13 =  7.692 %
+   */
+
+
+  const rawStats =
+    Array.from(
+      counts.entries()
+    ).map(
       (
         [
           name,
           count
         ]
-      ) => ({
-        name,
+      ) => {
+        const exactPercentage =
+          (
+            count /
+            total
+          ) *
+          100;
 
-        count,
+
+        const basePercentage =
+          Math.floor(
+            exactPercentage
+          );
+
+
+        return {
+          name,
+          count,
+
+          exactPercentage,
+
+          basePercentage,
+
+          remainder:
+            exactPercentage -
+            basePercentage
+        };
+      }
+    );
+
+
+  /*
+   * Floor kann z.B. nur 98 oder 99 ergeben.
+   *
+   * Fehlende Prozentpunkte werden anschließend
+   * nach dem größten Nachkommaanteil verteilt.
+   *
+   * Dadurch ergeben alle Zonen zusammen
+   * immer exakt 100 %.
+   */
+
+
+  const currentTotal =
+    rawStats.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        item.basePercentage,
+      0
+    );
+
+
+  let remaining =
+    100 -
+    currentTotal;
+
+
+  const distributionOrder =
+    rawStats
+      .map(
+        (
+          item,
+          index
+        ) => ({
+          ...item,
+          originalIndex:
+            index
+        })
+      )
+      .sort(
+        (
+          a,
+          b
+        ) => {
+          if (
+            b.remainder !==
+            a.remainder
+          ) {
+            return (
+              b.remainder -
+              a.remainder
+            );
+          }
+
+
+          if (
+            b.count !==
+            a.count
+          ) {
+            return (
+              b.count -
+              a.count
+            );
+          }
+
+
+          return (
+            a.originalIndex -
+            b.originalIndex
+          );
+        }
+      );
+
+
+  const bonus =
+    new Map<
+      string,
+      number
+    >();
+
+
+  distributionOrder.forEach(
+    item => {
+      bonus.set(
+        item.name,
+        0
+      );
+    }
+  );
+
+
+  let distributionIndex =
+    0;
+
+
+  while (
+    remaining >
+      0 &&
+    distributionOrder.length >
+      0
+  ) {
+    const item =
+      distributionOrder[
+        distributionIndex %
+        distributionOrder.length
+      ];
+
+
+    bonus.set(
+      item.name,
+      (
+        bonus.get(
+          item.name
+        ) ??
+        0
+      ) +
+        1
+    );
+
+
+    remaining -=
+      1;
+
+
+    distributionIndex +=
+      1;
+  }
+
+
+  return rawStats
+    .map(
+      item => ({
+        name:
+          item.name,
+
+        count:
+          item.count,
 
         percentage:
-          percentage(
-            count,
-            values.length
+          item.basePercentage +
+          (
+            bonus.get(
+              item.name
+            ) ??
+            0
           )
       })
     )
@@ -671,12 +929,30 @@ function createStats(
       (
         a,
         b
-      ) =>
-        b.count -
-        a.count
+      ) => {
+        if (
+          b.count !==
+          a.count
+        ) {
+          return (
+            b.count -
+            a.count
+          );
+        }
+
+
+        return a.name.localeCompare(
+          b.name,
+          "de"
+        );
+      }
     );
 }
 
+
+/* =====================================================
+   ZONE STATISTICS
+   ===================================================== */
 
 function zoneStats(
   events: GoalEvent[],
@@ -697,6 +973,15 @@ function zoneStats(
         );
 
 
+      /*
+       * Alte Events können teilweise Richtung
+       * unteres Tor gespeichert sein.
+       *
+       * Deshalb wird für die Auswertung zunächst
+       * die komplette Aktion Richtung oberes Tor
+       * normalisiert.
+       */
+
       const flip =
         shouldFlipEventToTopGoal(
           finish
@@ -708,45 +993,63 @@ function zoneStats(
         "finish"
       ) {
         if (
-          finish
+          !finish
         ) {
-          const displayPoint =
-            normalizePointForTopGoal(
-              finish,
-              flip
-            );
-
-
-          zones.push(
-            calculateZone(
-              displayPoint.x,
-              displayPoint.y
-            )
-          );
+          return;
         }
+
+
+        const normalizedFinish =
+          normalizePointForTopGoal(
+            finish,
+            flip
+          );
+
+
+        zones.push(
+          calculateZone(
+            normalizedFinish.x,
+            normalizedFinish.y
+          )
+        );
+
 
         return;
       }
 
 
-      getAssistPoints(
-        event
-      ).forEach(
+      /*
+       * Bei Assists zählen alle gespeicherten
+       * Assist-/Aktionspunkte.
+       */
+
+
+      const assistPoints =
+        getAssistPoints(
+          event
+        );
+
+
+      assistPoints.forEach(
         point => {
-          const displayPoint =
+          const normalizedAssist =
             normalizePointForTopGoal(
               {
-                x: point.x,
-                y: point.y
+                x:
+                  point.x,
+
+                y:
+                  point.y
               },
+
               flip
             );
 
 
           zones.push(
             calculateZone(
-              displayPoint.x,
-              displayPoint.y
+              normalizedAssist.x,
+              normalizedAssist.y
             )
           );
         }
@@ -773,110 +1076,164 @@ const ZONE_CENTERS:
 {
   "Angriffsdrittel – linker Flügel":
     {
-      x: 10,
-      y: 25
+      x:
+        10,
+
+      y:
+        25
     },
 
   "Angriffsdrittel – linker Halbraum":
     {
-      x: 30,
-      y: 25
+      x:
+        30,
+
+      y:
+        25
     },
 
   "Zone 14 / Zentrum vor Box":
     {
-      x: 50,
-      y: 25
+      x:
+        50,
+
+      y:
+        25
     },
 
   "Angriffsdrittel – rechter Halbraum":
     {
-      x: 70,
-      y: 25
+      x:
+        70,
+
+      y:
+        25
     },
 
   "Angriffsdrittel – rechter Flügel":
     {
-      x: 90,
-      y: 25
+      x:
+        90,
+
+      y:
+        25
     },
 
   "Box links":
     {
-      x: 33,
-      y: 9
+      x:
+        30,
+
+      y:
+        9
     },
 
   "Box zentral":
     {
-      x: 50,
-      y: 9
+      x:
+        50,
+
+      y:
+        9
     },
 
   "Box rechts":
     {
-      x: 67,
-      y: 9
+      x:
+        70,
+
+      y:
+        9
     },
 
   "Mitteldrittel – linker Flügel":
     {
-      x: 10,
-      y: 50
+      x:
+        10,
+
+      y:
+        50
     },
 
   "Mitteldrittel – linker Halbraum":
     {
-      x: 30,
-      y: 50
+      x:
+        30,
+
+      y:
+        50
     },
 
   "Mitteldrittel – Zentrum":
     {
-      x: 50,
-      y: 50
+      x:
+        50,
+
+      y:
+        50
     },
 
   "Mitteldrittel – rechter Halbraum":
     {
-      x: 70,
-      y: 50
+      x:
+        70,
+
+      y:
+        50
     },
 
   "Mitteldrittel – rechter Flügel":
     {
-      x: 90,
-      y: 50
+      x:
+        90,
+
+      y:
+        50
     },
 
   "Aufbaudrittel – linker Flügel":
     {
-      x: 10,
-      y: 83
+      x:
+        10,
+
+      y:
+        83
     },
 
   "Aufbaudrittel – linker Halbraum":
     {
-      x: 30,
-      y: 83
+      x:
+        30,
+
+      y:
+        83
     },
 
   "Aufbaudrittel – Zentrum":
     {
-      x: 50,
-      y: 83
+      x:
+        50,
+
+      y:
+        83
     },
 
   "Aufbaudrittel – rechter Halbraum":
     {
-      x: 70,
-      y: 83
+      x:
+        70,
+
+      y:
+        83
     },
 
   "Aufbaudrittel – rechter Flügel":
     {
-      x: 90,
-      y: 83
+      x:
+        90,
+
+      y:
+        83
     }
 };
 
@@ -1052,9 +1409,7 @@ function ZoneOverlay({
 
               className="zone-percentage"
 
-              title={
-                item.name
-              }
+              title={`${item.name}: ${item.count} (${item.percentage}%)`}
 
               style={{
                 left:
@@ -1102,6 +1457,7 @@ function AnalysisPitch({
             "assist"
           );
         }
+
 
         return zoneStats(
           events,
@@ -1183,9 +1539,13 @@ function AnalysisPitch({
                       point =>
                         normalizePointForTopGoal(
                           {
-                            x: point.x,
-                            y: point.y
+                            x:
+                              point.x,
+
+                            y:
+                              point.y
                           },
+
                           flip
                         )
                     ),
@@ -1209,7 +1569,8 @@ function AnalysisPitch({
                     ) => {
                       const next =
                         databasePoints[
-                          index + 1
+                          index +
+                          1
                         ];
 
 
@@ -1292,9 +1653,13 @@ function AnalysisPitch({
                   const displayPoint =
                     normalizePointForTopGoal(
                       {
-                        x: assist.x,
-                        y: assist.y
+                        x:
+                          assist.x,
+
+                        y:
+                          assist.y
                       },
+
                       flip
                     );
 
@@ -1322,7 +1687,8 @@ function AnalysisPitch({
                     >
                       {mode ===
                       "chain"
-                        ? index + 1
+                        ? index +
+                          1
                         : ""}
                     </div>
                   );
@@ -1955,6 +2321,7 @@ function App() {
               "SSO Validierung fehlgeschlagen"
             );
 
+
             return;
           }
 
@@ -2517,12 +2884,6 @@ function App() {
       );
 
 
-      /*
-       * ELFMETER:
-       * kein Assistpunkt,
-       * Abschluss automatisch oben.
-       */
-
       if (
         value ===
         "Elfmeter"
@@ -2540,12 +2901,6 @@ function App() {
         return;
       }
 
-
-      /*
-       * ECKBALL:
-       * Eckballposition wird automatisch
-       * als Aktion 1 gesetzt.
-       */
 
       const cornerPoint =
         getCornerScreenPoint(
@@ -2571,12 +2926,6 @@ function App() {
         return;
       }
 
-
-      /*
-       * Wechsel auf anderen Standard
-       * bzw. kein Standard:
-       * Positionen zurücksetzen.
-       */
 
       setActionScreenPoints(
         []
@@ -2604,11 +2953,6 @@ function App() {
         value
       );
 
-
-      /*
-       * Bei Eckball soll Aktion 1
-       * weiterhin automatisch bestehen bleiben.
-       */
 
       const cornerPoint =
         getCornerScreenPoint(
@@ -2710,13 +3054,6 @@ function App() {
       }
 
 
-      /*
-       * Neue Eingabekette beginnen.
-       *
-       * Bei Eckball bleibt der automatische
-       * Eckballpunkt Aktion 1.
-       */
-
       const cornerPoint =
         getCornerScreenPoint(
           setPieceType
@@ -2789,7 +3126,8 @@ function App() {
 
             return {
               order:
-                index + 1,
+                index +
+                1,
 
               x:
                 database.x,
@@ -3611,8 +3949,6 @@ function App() {
           {tokenStatus}
         </p>
 
-
-        {/* TEAM CARDS */}
 
         <div className="cards">
 
@@ -4638,14 +4974,18 @@ function App() {
                         ? actionScreenPoints.length <
                           actionCount
                           ? `Eckballpunkt automatisch gesetzt – Aktion ${
-                              actionScreenPoints.length + 1
+                              actionScreenPoints.length +
+                              1
                             } setzen`
                           : !finishScreenPoint
                             ? "Eckballpunkt automatisch gesetzt – Abschluss oben setzen"
                             : "Aktionskette vollständig"
                         : actionScreenPoints.length <
                           actionCount
-                          ? `Aktion ${actionScreenPoints.length + 1} setzen`
+                          ? `Aktion ${
+                              actionScreenPoints.length +
+                              1
+                            } setzen`
                           : !finishScreenPoint
                             ? "Abschluss oben setzen"
                             : "Aktionskette vollständig"}
@@ -4702,7 +5042,8 @@ function App() {
 
                             const next =
                               all[
-                                index + 1
+                                index +
+                                1
                               ];
 
 
@@ -4761,7 +5102,8 @@ function App() {
                               `${point.y}%`
                           }}
                         >
-                          {index + 1}
+                          {index +
+                          1}
                         </div>
 
                       )
