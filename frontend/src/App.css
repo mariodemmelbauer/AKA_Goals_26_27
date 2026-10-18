@@ -19,7 +19,8 @@
 
 
 body {
-  margin: 0;
+  margin:
+    0;
 
   background:
     #f3f4f5;
@@ -707,11 +708,6 @@ button:disabled {
   margin:
     22px auto;
 
-  /*
-   * Streifen quer über Feldbreite,
-   * ähnlich dem Referenzbild.
-   */
-
   background:
     repeating-linear-gradient(
       to right,
@@ -902,7 +898,7 @@ button:disabled {
 
 
 /* =========================================================
-   PASS / ACTION LINES
+   PASS LINES
    ========================================================= */
 
 .pitch-line-layer {
@@ -1387,6 +1383,323 @@ button:disabled {
 
 
 /* =========================================================
+   GOAL TIMING CHART
+   ========================================================= */
+
+.goal-timing-card {
+  width:
+    100%;
+
+  margin:
+    20px 0 35px;
+
+  padding:
+    24px 28px 20px;
+
+  border-radius:
+    12px;
+
+  background:
+    #171717;
+
+  color:
+    #fff;
+
+  box-shadow:
+    0 3px 12px
+    rgba(
+      0,
+      0,
+      0,
+      0.18
+    );
+}
+
+
+.goal-timing-header {
+  display:
+    flex;
+
+  align-items:
+    flex-start;
+
+  justify-content:
+    space-between;
+
+  gap:
+    24px;
+
+  margin-bottom:
+    22px;
+
+  text-align:
+    left;
+}
+
+
+.goal-timing-header h3 {
+  margin:
+    0;
+
+  font-size:
+    21px;
+}
+
+
+.goal-timing-header p {
+  margin:
+    5px 0 0;
+
+  color:
+    #aaa;
+
+  font-size:
+    13px;
+}
+
+
+.goal-timing-legend {
+  display:
+    flex;
+
+  gap:
+    18px;
+
+  flex-wrap:
+    wrap;
+
+  flex:
+    0 0 auto;
+}
+
+
+.goal-timing-legend-item {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    7px;
+
+  font-size:
+    13px;
+
+  font-weight:
+    600;
+}
+
+
+.goal-timing-legend-item i {
+  display:
+    inline-block;
+
+  width:
+    13px;
+
+  height:
+    13px;
+
+  border-radius:
+    3px;
+}
+
+
+.goal-timing-legend-goals {
+  background:
+    #78c832;
+}
+
+
+.goal-timing-legend-conceded {
+  background:
+    #e53935;
+}
+
+
+.goal-timing-chart {
+  position:
+    relative;
+
+  display:
+    grid;
+
+  grid-template-columns:
+    repeat(
+      6,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap:
+    12px;
+
+  min-height:
+    300px;
+
+  padding:
+    20px 10px 0;
+
+  border-bottom:
+    1px solid
+    rgba(
+      255,
+      255,
+      255,
+      0.35
+    );
+
+  background:
+    repeating-linear-gradient(
+      to top,
+      transparent 0,
+      transparent 74px,
+      rgba(
+        255,
+        255,
+        255,
+        0.08
+      ) 75px
+    );
+}
+
+
+.goal-timing-group {
+  min-width:
+    0;
+
+  display:
+    grid;
+
+  grid-template-rows:
+    245px auto;
+
+  gap:
+    10px;
+}
+
+
+.goal-timing-bars {
+  display:
+    flex;
+
+  align-items:
+    flex-end;
+
+  justify-content:
+    center;
+
+  gap:
+    8px;
+
+  height:
+    100%;
+}
+
+
+.goal-timing-bar-column {
+  width:
+    min(
+      42%,
+      45px
+    );
+
+  height:
+    100%;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  justify-content:
+    flex-end;
+
+  align-items:
+    center;
+}
+
+
+.goal-timing-value {
+  min-height:
+    20px;
+
+  margin-bottom:
+    5px;
+
+  font-size:
+    12px;
+
+  font-weight:
+    700;
+}
+
+
+.goal-timing-bar {
+  width:
+    100%;
+
+  min-height:
+    0;
+
+  border-radius:
+    5px 5px 0 0;
+
+  transition:
+    height 0.25s ease;
+}
+
+
+.goal-timing-bar-goals {
+  background:
+    #78c832;
+}
+
+
+.goal-timing-bar-conceded {
+  background:
+    #e53935;
+}
+
+
+.goal-timing-label {
+  min-height:
+    35px;
+
+  display:
+    flex;
+
+  align-items:
+    flex-start;
+
+  justify-content:
+    center;
+
+  color:
+    #ddd;
+
+  font-size:
+    12px;
+
+  font-weight:
+    600;
+
+  line-height:
+    1.25;
+
+  text-align:
+    center;
+
+  overflow-wrap:
+    anywhere;
+}
+
+
+/* =========================================================
    STATS
    ========================================================= */
 
@@ -1672,6 +1985,18 @@ button:disabled {
     grid-template-columns:
       1fr;
   }
+
+
+  .goal-timing-card {
+    overflow-x:
+      auto;
+  }
+
+
+  .goal-timing-chart {
+    min-width:
+      700px;
+  }
 }
 
 
@@ -1727,6 +2052,12 @@ button:disabled {
   .view-switcher button {
     width:
       100%;
+  }
+
+
+  .goal-timing-header {
+    flex-direction:
+      column;
   }
 }
 
