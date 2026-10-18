@@ -145,6 +145,12 @@ type StatItem = {
   percentage: number;
 };
 
+type GoalTimingBucket = {
+  label: string;
+  goals: number;
+  conceded: number;
+};
+
 
 /* =====================================================
    CONSTANTS
@@ -158,12 +164,10 @@ const TEAMS: TeamName[] = [
   "Profis"
 ];
 
-
 const TEAM_SELECTIONS: TeamSelection[] = [
   "Alle Teams",
   ...TEAMS
 ];
-
 
 const PHASES = [
   "",
@@ -173,7 +177,6 @@ const PHASES = [
   "Standard",
   "Sonstiges"
 ];
-
 
 const CREATION_TYPES = [
   "",
@@ -187,14 +190,12 @@ const CREATION_TYPES = [
   "Sonstiges"
 ];
 
-
 const FINISH_TOUCHES = [
   "",
   "One Touch",
   "Two Touch",
   ">2 Touches"
 ];
-
 
 const SET_PIECE_TYPES = [
   "",
@@ -207,6 +208,33 @@ const SET_PIECE_TYPES = [
   "Sonstiger Standard"
 ];
 
+const U15_TIMING_LABELS = [
+  "0–15",
+  "16–30",
+  "31–40",
+  "41–55",
+  "56–70",
+  "71–80"
+];
+
+const STANDARD_TIMING_LABELS = [
+  "0–15",
+  "16–30",
+  "31–45",
+  "46–60",
+  "61–75",
+  "76–90"
+];
+
+const ALL_TEAMS_TIMING_LABELS = [
+  "1. Phase",
+  "2. Phase",
+  "Ende 1. HZ",
+  "Beginn 2. HZ",
+  "5. Phase",
+  "Schlussphase"
+];
+
 
 /* =====================================================
    COORDINATES
@@ -217,12 +245,8 @@ function databaseToScreen(
   databaseY: number
 ): ScreenPoint {
   return {
-    x:
-      databaseY,
-
-    y:
-      100 -
-      databaseX
+    x: databaseY,
+    y: 100 - databaseX
   };
 }
 
@@ -232,12 +256,8 @@ function screenToDatabase(
   screenY: number
 ): DatabasePoint {
   return {
-    x:
-      100 -
-      screenY,
-
-    y:
-      screenX
+    x: 100 - screenY,
+    y: screenX
   };
 }
 
@@ -252,17 +272,14 @@ function getFinishPoint(
     return null;
   }
 
-
   return {
-    x:
-      Number(
-        event.finish_x
-      ),
+    x: Number(
+      event.finish_x
+    ),
 
-    y:
-      Number(
-        event.finish_y
-      )
+    y: Number(
+      event.finish_y
+    )
   };
 }
 
@@ -275,13 +292,8 @@ function flipPointToTopGoal(
   point: DatabasePoint
 ): DatabasePoint {
   return {
-    x:
-      100 -
-      point.x,
-
-    y:
-      100 -
-      point.y
+    x: 100 - point.x,
+    y: 100 - point.y
   };
 }
 
@@ -295,9 +307,7 @@ function shouldFlipEventToTopGoal(
     return false;
   }
 
-
-  return finish.x <
-    50;
+  return finish.x < 50;
 }
 
 
@@ -324,8 +334,7 @@ function getAssistPoints(
     Array.isArray(
       event.assist_points
     ) &&
-    event.assist_points.length >
-      0
+    event.assist_points.length > 0
   ) {
     return event.assist_points
       .filter(
@@ -347,8 +356,7 @@ function getAssistPoints(
           index
         ) => ({
           order:
-            index +
-            1,
+            index + 1,
 
           x:
             Number(
@@ -378,8 +386,7 @@ function getAssistPoints(
   ) {
     return [
       {
-        order:
-          1,
+        order: 1,
 
         x:
           Number(
@@ -398,7 +405,6 @@ function getAssistPoints(
     ];
   }
 
-
   return [];
 }
 
@@ -408,26 +414,15 @@ function getAssistPoints(
    ===================================================== */
 
 const FIRST_THIRD =
-  100 /
-  3;
-
+  100 / 3;
 
 const SECOND_THIRD =
-  (
-    100 /
-    3
-  ) *
-  2;
-
+  (100 / 3) * 2;
 
 const PENALTY_BOX_X =
   100 -
-  (
-    16.5 /
-    105
-  ) *
-    100;
-
+  (16.5 / 105) *
+  100;
 
 const PENALTY_BOX_Y_MIN =
   (
@@ -440,26 +435,12 @@ const PENALTY_BOX_Y_MIN =
   ) *
   100;
 
-
 const PENALTY_BOX_Y_MAX =
   100 -
   PENALTY_BOX_Y_MIN;
 
-
-/*
- * Wichtig:
- *
- * Die Box wird genauso in drei sichtbare
- * Zonen geteilt wie unser Overlay:
- *
- * links    = 20 - 40
- * zentral  = 40 - 60
- * rechts   = 60 - 80
- */
-
 const BOX_LEFT_END =
   40;
-
 
 const BOX_CENTER_END =
   60;
@@ -469,36 +450,28 @@ function getHorizontalLane(
   y: number
 ): string {
   if (
-    y <
-    20
+    y < 20
   ) {
     return "linker Flügel";
   }
 
-
   if (
-    y <
-    40
+    y < 40
   ) {
     return "linker Halbraum";
   }
 
-
   if (
-    y <=
-    60
+    y <= 60
   ) {
     return "Zentrum";
   }
 
-
   if (
-    y <=
-    80
+    y <= 80
   ) {
     return "rechter Halbraum";
   }
-
 
   return "rechter Flügel";
 }
@@ -516,7 +489,6 @@ function calculateZone(
         x
       )
     );
-
 
   const safeY =
     Math.max(
@@ -537,19 +509,6 @@ function calculateZone(
       PENALTY_BOX_Y_MAX;
 
 
-  /*
-   * BOX
-   *
-   * Strafraum liegt ungefähr zwischen
-   * y 20.35 und y 79.65.
-   *
-   * Innerhalb davon:
-   *
-   * 20.35 - 40 = Box links
-   * 40 - 60    = Box zentral
-   * 60 - 79.65 = Box rechts
-   */
-
   if (
     insideAttackingBox
   ) {
@@ -560,7 +519,6 @@ function calculateZone(
       return "Box links";
     }
 
-
     if (
       safeY <=
       BOX_CENTER_END
@@ -568,14 +526,9 @@ function calculateZone(
       return "Box zentral";
     }
 
-
     return "Box rechts";
   }
 
-
-  /*
-   * ZONE 14
-   */
 
   if (
     safeX >=
@@ -618,22 +571,17 @@ function calculateZone(
 
 
 /* =====================================================
-   AUTOMATIC SET-PIECE POINTS
+   AUTOMATIC SET PIECES
    ===================================================== */
 
 function getPenaltyScreenPoint(): ScreenPoint {
   const distance =
-    (
-      11 /
-      105
-    ) *
+    (11 / 105) *
     100;
-
 
   const databaseX =
     100 -
     distance;
-
 
   return databaseToScreen(
     databaseX,
@@ -650,11 +598,8 @@ function getCornerScreenPoint(
     "Eckball links"
   ) {
     return {
-      x:
-        1,
-
-      y:
-        1
+      x: 1,
+      y: 1
     };
   }
 
@@ -664,11 +609,8 @@ function getCornerScreenPoint(
     "Eckball rechts"
   ) {
     return {
-      x:
-        99,
-
-      y:
-        1
+      x: 99,
+      y: 1
     };
   }
 
@@ -678,15 +620,14 @@ function getCornerScreenPoint(
 
 
 /* =====================================================
-   STATISTICS
+   GENERAL STATISTICS
    ===================================================== */
 
 function createStats(
   values: string[]
 ): StatItem[] {
   if (
-    values.length ===
-    0
+    values.length === 0
   ) {
     return [];
   }
@@ -705,7 +646,6 @@ function createStats(
         value ||
         "Nicht angegeben";
 
-
       counts.set(
         key,
         (
@@ -714,7 +654,7 @@ function createStats(
           ) ??
           0
         ) +
-          1
+        1
       );
     }
   );
@@ -722,18 +662,6 @@ function createStats(
 
   const total =
     values.length;
-
-
-  /*
-   * Erst exakte Prozentwerte berechnen.
-   *
-   * Beispiel:
-   *
-   * 7 / 13 = 53.846 %
-   * 4 / 13 = 30.769 %
-   * 1 / 13 =  7.692 %
-   * 1 / 13 =  7.692 %
-   */
 
 
   const rawStats =
@@ -753,19 +681,15 @@ function createStats(
           ) *
           100;
 
-
         const basePercentage =
           Math.floor(
             exactPercentage
           );
 
-
         return {
           name,
           count,
-
           exactPercentage,
-
           basePercentage,
 
           remainder:
@@ -774,17 +698,6 @@ function createStats(
         };
       }
     );
-
-
-  /*
-   * Floor kann z.B. nur 98 oder 99 ergeben.
-   *
-   * Fehlende Prozentpunkte werden anschließend
-   * nach dem größten Nachkommaanteil verteilt.
-   *
-   * Dadurch ergeben alle Zonen zusammen
-   * immer exakt 100 %.
-   */
 
 
   const currentTotal =
@@ -812,6 +725,7 @@ function createStats(
           index
         ) => ({
           ...item,
+
           originalIndex:
             index
         })
@@ -831,7 +745,6 @@ function createStats(
             );
           }
 
-
           if (
             b.count !==
             a.count
@@ -841,7 +754,6 @@ function createStats(
               a.count
             );
           }
-
 
           return (
             a.originalIndex -
@@ -873,10 +785,8 @@ function createStats(
 
 
   while (
-    remaining >
-      0 &&
-    distributionOrder.length >
-      0
+    remaining > 0 &&
+    distributionOrder.length > 0
   ) {
     const item =
       distributionOrder[
@@ -893,13 +803,12 @@ function createStats(
         ) ??
         0
       ) +
-        1
+      1
     );
 
 
     remaining -=
       1;
-
 
     distributionIndex +=
       1;
@@ -940,7 +849,6 @@ function createStats(
           );
         }
 
-
         return a.name.localeCompare(
           b.name,
           "de"
@@ -972,15 +880,6 @@ function zoneStats(
           event
         );
 
-
-      /*
-       * Alte Events können teilweise Richtung
-       * unteres Tor gespeichert sein.
-       *
-       * Deshalb wird für die Auswertung zunächst
-       * die komplette Aktion Richtung oberes Tor
-       * normalisiert.
-       */
 
       const flip =
         shouldFlipEventToTopGoal(
@@ -1016,12 +915,6 @@ function zoneStats(
 
         return;
       }
-
-
-      /*
-       * Bei Assists zählen alle gespeicherten
-       * Assist-/Aktionspunkte.
-       */
 
 
       const assistPoints =
@@ -1065,6 +958,374 @@ function zoneStats(
 
 
 /* =====================================================
+   GOAL TIMING STATISTICS
+   ===================================================== */
+
+function getTimingBucketIndex(
+  minute: number,
+  team: string | undefined
+): number {
+  const isU15 =
+    team ===
+    "U15";
+
+
+  if (
+    isU15
+  ) {
+    if (
+      minute <=
+      15
+    ) {
+      return 0;
+    }
+
+    if (
+      minute <=
+      30
+    ) {
+      return 1;
+    }
+
+    if (
+      minute <=
+      40
+    ) {
+      return 2;
+    }
+
+    if (
+      minute <=
+      55
+    ) {
+      return 3;
+    }
+
+    if (
+      minute <=
+      70
+    ) {
+      return 4;
+    }
+
+    /*
+     * 71-80 und Nachspielzeit
+     */
+
+    return 5;
+  }
+
+
+  if (
+    minute <=
+    15
+  ) {
+    return 0;
+  }
+
+  if (
+    minute <=
+    30
+  ) {
+    return 1;
+  }
+
+  if (
+    minute <=
+    45
+  ) {
+    return 2;
+  }
+
+  if (
+    minute <=
+    60
+  ) {
+    return 3;
+  }
+
+  if (
+    minute <=
+    75
+  ) {
+    return 4;
+  }
+
+  /*
+   * 76-90 und Nachspielzeit
+   */
+
+  return 5;
+}
+
+
+function createGoalTimingStats(
+  events: GoalEvent[],
+  selectedTeam: TeamSelection
+): GoalTimingBucket[] {
+  const labels =
+    selectedTeam ===
+    "U15"
+      ? U15_TIMING_LABELS
+      : selectedTeam ===
+          "Alle Teams"
+        ? ALL_TEAMS_TIMING_LABELS
+        : STANDARD_TIMING_LABELS;
+
+
+  const result:
+    GoalTimingBucket[] =
+    labels.map(
+      label => ({
+        label,
+        goals: 0,
+        conceded: 0
+      })
+    );
+
+
+  events.forEach(
+    event => {
+      if (
+        event.minute == null
+      ) {
+        return;
+      }
+
+
+      const minute =
+        Number(
+          event.minute
+        );
+
+
+      if (
+        !Number.isFinite(
+          minute
+        ) ||
+        minute <
+          0
+      ) {
+        return;
+      }
+
+
+      /*
+       * Bei Alle Teams entscheidet event.team,
+       * ob das U15- oder 90-Minuten-Raster gilt.
+       *
+       * Bei einer einzelnen Team-Auswertung
+       * verwenden wir selectedTeam.
+       */
+
+      const eventTeam =
+        selectedTeam ===
+        "Alle Teams"
+          ? event.team
+          : selectedTeam;
+
+
+      const bucketIndex =
+        getTimingBucketIndex(
+          minute,
+          eventTeam
+        );
+
+
+      if (
+        event.event_type ===
+        "Tor"
+      ) {
+        result[
+          bucketIndex
+        ].goals +=
+          1;
+      }
+
+
+      if (
+        event.event_type ===
+        "Gegentor"
+      ) {
+        result[
+          bucketIndex
+        ].conceded +=
+          1;
+      }
+    }
+  );
+
+
+  return result;
+}
+
+
+/* =====================================================
+   GOAL TIMING CHART
+   ===================================================== */
+
+function GoalTimingChart({
+  data,
+  selectedTeam
+}: {
+  data: GoalTimingBucket[];
+  selectedTeam: TeamSelection;
+}) {
+  const maxValue =
+    Math.max(
+      1,
+      ...data.flatMap(
+        item => [
+          item.goals,
+          item.conceded
+        ]
+      )
+    );
+
+
+  return (
+    <div className="goal-timing-card">
+
+      <div className="goal-timing-header">
+
+        <div>
+
+          <h3>
+            Zeitpunkt der Tore
+          </h3>
+
+          <p>
+            {selectedTeam ===
+            "U15"
+              ? "Spielzeit 80 Minuten"
+              : selectedTeam ===
+                  "Alle Teams"
+                ? "U15 nach 80-Minuten-Raster, alle anderen Teams nach 90-Minuten-Raster"
+                : "Spielzeit 90 Minuten"}
+          </p>
+
+        </div>
+
+
+        <div className="goal-timing-legend">
+
+          <span className="goal-timing-legend-item">
+            <i className="goal-timing-legend-goals" />
+            Tore
+          </span>
+
+          <span className="goal-timing-legend-item">
+            <i className="goal-timing-legend-conceded" />
+            Gegentore
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div className="goal-timing-chart">
+
+        {data.map(
+          item => {
+            const goalHeight =
+              item.goals ===
+              0
+                ? 0
+                : Math.max(
+                    8,
+                    (
+                      item.goals /
+                      maxValue
+                    ) *
+                    100
+                  );
+
+
+            const concededHeight =
+              item.conceded ===
+              0
+                ? 0
+                : Math.max(
+                    8,
+                    (
+                      item.conceded /
+                      maxValue
+                    ) *
+                    100
+                  );
+
+
+            return (
+              <div
+                key={
+                  item.label
+                }
+
+                className="goal-timing-group"
+              >
+
+                <div className="goal-timing-bars">
+
+                  <div className="goal-timing-bar-column">
+
+                    <div className="goal-timing-value">
+                      {item.goals}
+                    </div>
+
+                    <div
+                      className="goal-timing-bar goal-timing-bar-goals"
+
+                      style={{
+                        height:
+                          `${goalHeight}%`
+                      }}
+
+                      title={`${item.label}: ${item.goals} Tore`}
+                    />
+
+                  </div>
+
+
+                  <div className="goal-timing-bar-column">
+
+                    <div className="goal-timing-value">
+                      {item.conceded}
+                    </div>
+
+                    <div
+                      className="goal-timing-bar goal-timing-bar-conceded"
+
+                      style={{
+                        height:
+                          `${concededHeight}%`
+                      }}
+
+                      title={`${item.label}: ${item.conceded} Gegentore`}
+                    />
+
+                  </div>
+
+                </div>
+
+
+                <div className="goal-timing-label">
+                  {item.label}
+                </div>
+
+              </div>
+            );
+          }
+        )}
+
+      </div>
+
+    </div>
+  );
+}
+
+
+/* =====================================================
    ZONE LABEL POSITIONS
    ===================================================== */
 
@@ -1076,164 +1337,110 @@ const ZONE_CENTERS:
 {
   "Angriffsdrittel – linker Flügel":
     {
-      x:
-        10,
-
-      y:
-        25
+      x: 10,
+      y: 25
     },
 
   "Angriffsdrittel – linker Halbraum":
     {
-      x:
-        30,
-
-      y:
-        25
+      x: 30,
+      y: 25
     },
 
   "Zone 14 / Zentrum vor Box":
     {
-      x:
-        50,
-
-      y:
-        25
+      x: 50,
+      y: 25
     },
 
   "Angriffsdrittel – rechter Halbraum":
     {
-      x:
-        70,
-
-      y:
-        25
+      x: 70,
+      y: 25
     },
 
   "Angriffsdrittel – rechter Flügel":
     {
-      x:
-        90,
-
-      y:
-        25
+      x: 90,
+      y: 25
     },
 
   "Box links":
     {
-      x:
-        30,
-
-      y:
-        9
+      x: 30,
+      y: 9
     },
 
   "Box zentral":
     {
-      x:
-        50,
-
-      y:
-        9
+      x: 50,
+      y: 9
     },
 
   "Box rechts":
     {
-      x:
-        70,
-
-      y:
-        9
+      x: 70,
+      y: 9
     },
 
   "Mitteldrittel – linker Flügel":
     {
-      x:
-        10,
-
-      y:
-        50
+      x: 10,
+      y: 50
     },
 
   "Mitteldrittel – linker Halbraum":
     {
-      x:
-        30,
-
-      y:
-        50
+      x: 30,
+      y: 50
     },
 
   "Mitteldrittel – Zentrum":
     {
-      x:
-        50,
-
-      y:
-        50
+      x: 50,
+      y: 50
     },
 
   "Mitteldrittel – rechter Halbraum":
     {
-      x:
-        70,
-
-      y:
-        50
+      x: 70,
+      y: 50
     },
 
   "Mitteldrittel – rechter Flügel":
     {
-      x:
-        90,
-
-      y:
-        50
+      x: 90,
+      y: 50
     },
 
   "Aufbaudrittel – linker Flügel":
     {
-      x:
-        10,
-
-      y:
-        83
+      x: 10,
+      y: 83
     },
 
   "Aufbaudrittel – linker Halbraum":
     {
-      x:
-        30,
-
-      y:
-        83
+      x: 30,
+      y: 83
     },
 
   "Aufbaudrittel – Zentrum":
     {
-      x:
-        50,
-
-      y:
-        83
+      x: 50,
+      y: 83
     },
 
   "Aufbaudrittel – rechter Halbraum":
     {
-      x:
-        70,
-
-      y:
-        83
+      x: 70,
+      y: 83
     },
 
   "Aufbaudrittel – rechter Flügel":
     {
-      x:
-        90,
-
-      y:
-        83
+      x: 90,
+      y: 83
     }
 };
 
@@ -1569,8 +1776,7 @@ function AnalysisPitch({
                     ) => {
                       const next =
                         databasePoints[
-                          index +
-                          1
+                          index + 1
                         ];
 
 
@@ -1687,8 +1893,7 @@ function AnalysisPitch({
                     >
                       {mode ===
                       "chain"
-                        ? index +
-                          1
+                        ? index + 1
                         : ""}
                     </div>
                   );
@@ -2244,10 +2449,6 @@ function App() {
     useState("");
 
 
-  /* =====================================================
-     TOKEN
-     ===================================================== */
-
   const getTeamsToken =
     async (): Promise<string> => {
       const token =
@@ -2266,10 +2467,6 @@ function App() {
       return token;
     };
 
-
-  /* =====================================================
-     INIT
-     ===================================================== */
 
   useEffect(() => {
     const init =
@@ -2321,7 +2518,6 @@ function App() {
               "SSO Validierung fehlgeschlagen"
             );
 
-
             return;
           }
 
@@ -2359,10 +2555,6 @@ function App() {
     void init();
   }, []);
 
-
-  /* =====================================================
-     LOAD MATCHES
-     ===================================================== */
 
   const loadMatches =
     async (
@@ -2437,10 +2629,6 @@ function App() {
     };
 
 
-  /* =====================================================
-     LOAD TEAM EVENTS
-     ===================================================== */
-
   const loadTeamEvents =
     async (
       team: TeamSelection
@@ -2514,10 +2702,6 @@ function App() {
   }, [teamsReady]);
 
 
-  /* =====================================================
-     TEAM SELECT
-     ===================================================== */
-
   const selectTeam =
     (
       team: TeamSelection
@@ -2534,29 +2718,23 @@ function App() {
 
       setEvents([]);
 
-
       setTeamEvents([]);
-
 
       setShowEventForm(
         false
       );
 
-
       setShowMatchForm(
         false
       );
-
 
       setEventToMove(
         null
       );
 
-
       setEventToDelete(
         null
       );
-
 
       setMatchToDelete(
         null
@@ -2591,10 +2769,6 @@ function App() {
       );
     };
 
-
-  /* =====================================================
-     LOAD EVENTS
-     ===================================================== */
 
   const loadEvents =
     async (
@@ -2647,10 +2821,6 @@ function App() {
     };
 
 
-  /* =====================================================
-     MATCH CREATE
-     ===================================================== */
-
   const saveMatch =
     async () => {
       if (
@@ -2668,7 +2838,6 @@ function App() {
         setMatchSaveStatus(
           "Bitte Datum und Gegner eingeben."
         );
-
 
         return;
       }
@@ -2732,7 +2901,6 @@ function App() {
             "Spiel konnte nicht gespeichert werden"
           );
 
-
           return;
         }
 
@@ -2740,7 +2908,6 @@ function App() {
         setShowMatchForm(
           false
         );
-
 
         setNewMatchDate("");
 
@@ -2759,10 +2926,6 @@ function App() {
       }
     };
 
-
-  /* =====================================================
-     MATCH DELETE
-     ===================================================== */
 
   const deleteMatch =
     async () => {
@@ -2817,10 +2980,6 @@ function App() {
     };
 
 
-  /* =====================================================
-     OPEN EVENT
-     ===================================================== */
-
   const openEventForm =
     (
       type: EventType
@@ -2828,7 +2987,6 @@ function App() {
       setEventType(
         type
       );
-
 
       setMinute("");
 
@@ -2846,34 +3004,25 @@ function App() {
 
       setComment("");
 
-
       setActionCount(
         1
       );
-
 
       setActionScreenPoints(
         []
       );
 
-
       setFinishScreenPoint(
         null
       );
 
-
       setSaveStatus("");
-
 
       setShowEventForm(
         true
       );
     };
 
-
-  /* =====================================================
-     SET PIECE
-     ===================================================== */
 
   const handleSetPieceChange =
     (
@@ -2917,11 +3066,9 @@ function App() {
           ]
         );
 
-
         setFinishScreenPoint(
           null
         );
-
 
         return;
       }
@@ -2931,16 +3078,11 @@ function App() {
         []
       );
 
-
       setFinishScreenPoint(
         null
       );
     };
 
-
-  /* =====================================================
-     ACTION COUNT
-     ===================================================== */
 
   const handleActionCountChange =
     (
@@ -2980,10 +3122,6 @@ function App() {
       );
     };
 
-
-  /* =====================================================
-     PITCH CLICK
-     ===================================================== */
 
   const handlePitchClick =
     (
@@ -3037,7 +3175,6 @@ function App() {
           ]
         );
 
-
         return;
       }
 
@@ -3048,7 +3185,6 @@ function App() {
         setFinishScreenPoint(
           point
         );
-
 
         return;
       }
@@ -3073,7 +3209,6 @@ function App() {
             ]
           );
 
-
           setFinishScreenPoint(
             point
           );
@@ -3085,12 +3220,10 @@ function App() {
             ]
           );
 
-
           setFinishScreenPoint(
             null
           );
         }
-
 
         return;
       }
@@ -3101,7 +3234,6 @@ function App() {
           point
         ]
       );
-
 
       setFinishScreenPoint(
         null
@@ -3126,8 +3258,7 @@ function App() {
 
             return {
               order:
-                index +
-                1,
+                index + 1,
 
               x:
                 database.x,
@@ -3164,10 +3295,6 @@ function App() {
     );
 
 
-  /* =====================================================
-     SAVE EVENT
-     ===================================================== */
-
   const saveEvent =
     async () => {
       if (
@@ -3187,7 +3314,6 @@ function App() {
           "Bitte Abschlussposition setzen."
         );
 
-
         return;
       }
 
@@ -3206,14 +3332,12 @@ function App() {
           "Bitte alle Aktionen vor dem Abschluss setzen."
         );
 
-
         return;
       }
 
 
       const lastAssist =
-        actionDatabasePoints.length >
-          0
+        actionDatabasePoints.length > 0
           ? actionDatabasePoints[
               actionDatabasePoints.length -
               1
@@ -3349,7 +3473,6 @@ function App() {
                 "Speichern fehlgeschlagen"
           );
 
-
           return;
         }
 
@@ -3363,7 +3486,6 @@ function App() {
           false
         );
 
-
         setSaveStatus("");
       } finally {
         setSavingEvent(
@@ -3372,10 +3494,6 @@ function App() {
       }
     };
 
-
-  /* =====================================================
-     DELETE EVENT
-     ===================================================== */
 
   const executeDeleteEvent =
     async () => {
@@ -3430,10 +3548,6 @@ function App() {
       }
     };
 
-
-  /* =====================================================
-     MOVE EVENT
-     ===================================================== */
 
   const loadMoveMatches =
     async (
@@ -3598,7 +3712,6 @@ function App() {
             "Verschieben fehlgeschlagen"
           );
 
-
           return;
         }
 
@@ -3606,7 +3719,6 @@ function App() {
         setEventToMove(
           null
         );
-
 
         setMoveStatus("");
 
@@ -3654,6 +3766,20 @@ function App() {
         ),
       [
         teamEvents
+      ]
+    );
+
+
+  const goalTimingStats =
+    useMemo(
+      () =>
+        createGoalTimingStats(
+          teamEvents,
+          selectedTeam
+        ),
+      [
+        teamEvents,
+        selectedTeam
       ]
     );
 
@@ -3755,10 +3881,6 @@ function App() {
         "Gegentor"
     );
 
-
-  /* =====================================================
-     HELPERS
-     ===================================================== */
 
   const formatMatchDate =
     (
@@ -3902,10 +4024,6 @@ function App() {
     );
 
 
-  /* =====================================================
-     UI
-     ===================================================== */
-
   return (
     <div className="app">
 
@@ -4048,7 +4166,6 @@ function App() {
                   "matches"
                 );
 
-
                 setSelectedMatch(
                   null
                 );
@@ -4071,11 +4188,9 @@ function App() {
                   "analysis"
                 );
 
-
                 setSelectedMatch(
                   null
                 );
-
 
                 void loadTeamEvents(
                   selectedTeam
@@ -4177,6 +4292,22 @@ function App() {
                   </div>
 
                 </div>
+
+
+                <h2 className="analysis-heading">
+                  Zeitpunkt der Tore
+                </h2>
+
+
+                <GoalTimingChart
+                  data={
+                    goalTimingStats
+                  }
+
+                  selectedTeam={
+                    selectedTeam
+                  }
+                />
 
 
                 <h2 className="analysis-heading">
@@ -4387,19 +4518,15 @@ function App() {
                   null
                 );
 
-
                 setEvents([]);
-
 
                 setShowEventForm(
                   false
                 );
 
-
                 setEventToMove(
                   null
                 );
-
 
                 setEventToDelete(
                   null
@@ -4478,11 +4605,9 @@ function App() {
                           const team =
                             event.target.value as TeamName;
 
-
                           setMoveTargetTeam(
                             team
                           );
-
 
                           void loadMoveMatches(
                             team
@@ -5042,8 +5167,7 @@ function App() {
 
                             const next =
                               all[
-                                index +
-                                1
+                                index + 1
                               ];
 
 
@@ -5102,8 +5226,7 @@ function App() {
                               `${point.y}%`
                           }}
                         >
-                          {index +
-                          1}
+                          {index + 1}
                         </div>
 
                       )
@@ -5306,9 +5429,7 @@ function App() {
                     true
                   );
 
-
                   setMatchSaveStatus("");
-
 
                   setMatchToDelete(
                     null
