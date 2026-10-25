@@ -71,9 +71,32 @@ type ChangeRow = {
   afterFor: number; afterAgainst: number;
   scoreAtChange: string;
 };
+type OffImpactRow = {
+  date: string; opponent: string; minute: number; on: string;
+  concurrent: number; beforeMinutes: number; afterMinutes: number;
+  beforeFor: number; beforeAgainst: number; afterFor: number; afterAgainst: number;
+};
 
 const signed = (n: number) => n > 0 ? `+${n}` : String(n);
 const per80 = (n: number, mins: number) => mins ? (n * 80 / mins).toFixed(2).replace(".", ",") : "–";
+
+function getOutgoingImpact(fixtures: Fixture[], name: string): OffImpactRow[] {
+  return fixtures.flatMap(match => match.substitutions
+    .filter(([, off]) => off === name)
+    .map(([minute, , on]) => {
+      const before = match.goals.filter(([m]) => m <= minute && m > Math.max(0, minute - 15));
+      const after = match.goals.filter(([m]) => m > minute && m <= Math.min(80, minute + 15));
+      return {
+        date: match.date, opponent: match.opponent, minute, on,
+        concurrent: match.substitutions.filter(([m]) => m === minute).length,
+        beforeMinutes: Math.min(15, minute), afterMinutes: Math.min(15, 80-minute),
+        beforeFor: before.filter(([,s]) => s === "for").length,
+        beforeAgainst: before.filter(([,s]) => s === "against").length,
+        afterFor: after.filter(([,s]) => s === "for").length,
+        afterAgainst: after.filter(([,s]) => s === "against").length
+      };
+    }));
+}
 
 function computeImpact(fixtures: Fixture[]) {
   const players = new Map<string, PlayerRow>();
@@ -143,7 +166,7 @@ function computeImpact(fixtures: Fixture[]) {
 
 export default function PlayerImpact() {
   const [selectedDates, setSelectedDates] = useState<string[]>(FIXTURES.map(f => f.date));
-  const [tab, setTab] = useState<"players" | "jokers" | "changes" | "onoff">("players");
+  const [tab, setTab] = useState<"players" | "jokers" | "changes" | "onoff" | "outgoing">("players");
   const [minMinutes, setMinMinutes] = useState(80);
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const fixtures = useMemo(() => FIXTURES.filter(f => selectedDates.includes(f.date)), [selectedDates]);
@@ -161,6 +184,14 @@ export default function PlayerImpact() {
       return (bv / bm) - (av / am);
     });
   const detail = players.find(p => p.name === selectedPlayer);
+  const outgoingNames = [...new Set(fixtures.flatMap(f => f.substitutions.map(([,off]) => off)))].sort();
+  const outgoingName = outgoingNames.includes(selectedPlayer) ? selectedPlayer : (outgoingNames.includes("Bennet Berg") ? "Bennet Berg" : outgoingNames[0]);
+  const outgoingRows = outgoingName ? getOutgoingImpact(fixtures, outgoingName) : [];
+  const outgoingTotals = outgoingRows.reduce((s,r) => ({
+    beforeMinutes:s.beforeMinutes+r.beforeMinutes, afterMinutes:s.afterMinutes+r.afterMinutes,
+    beforeFor:s.beforeFor+r.beforeFor, beforeAgainst:s.beforeAgainst+r.beforeAgainst,
+    afterFor:s.afterFor+r.afterFor, afterAgainst:s.afterAgainst+r.afterAgainst
+  }), {beforeMinutes:0,afterMinutes:0,beforeFor:0,beforeAgainst:0,afterFor:0,afterAgainst:0});
   const totalFor = fixtures.reduce((n,f) => n + f.goals.filter(g => g[1] === "for").length, 0);
   const totalAgainst = fixtures.reduce((n,f) => n + f.goals.filter(g => g[1] === "against").length, 0);
   const cell = {padding:"10px", borderBottom:"1px solid #e1e5e2", textAlign:"left" as const};
@@ -189,16 +220,46 @@ export default function PlayerImpact() {
         </div>
       </div>
       <div className="view-switcher" style={{flexWrap:"wrap",marginBottom:18}}>
-        {([["players","Spieler-Ranking"],["jokers","Joker-Impact"],["changes","Wechsel-Impact"],["onoff","On/Off"]] as const)
+        {([["players","Spieler-Ranking"],["jokers","Joker-Impact"],["changes","Wechsel-Impact"],["onoff","On/Off"],["outgoing","Nach Auswechslung"]] as const)
           .map(([key,label]) => <button key={key} className={tab===key?"view-button-active":""} onClick={() => setTab(key)}>{label}</button>)}
       </div>
-      {tab !== "changes" && <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+      {tab !== "changes" && tab !== "outgoing" && <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
         <label>Mindestminuten: <select value={minMinutes} onChange={e=>setMinMinutes(Number(e.target.value))}>
           {[0,40,80,160,240].map(m=><option key={m} value={m}>{m}</option>)}
         </select></label>
         <span style={{fontSize:13,color:"#526052"}}>Sortierung: Plus/Minus je 80 Einsatzminuten</span>
       </div>}
-      {tab === "changes" ? (
+      {tab === "outgoing" ? (
+        <div style={{background:"#fff",borderRadius:12,padding:16}}>
+          <label style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",marginBottom:16}}>
+            <strong>Ausgewechselter Spieler:</strong>
+            <select value={outgoingName ?? ""} onChange={e=>setSelectedPlayer(e.target.value)}>
+              {outgoingNames.map(n=><option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <p>Vergleich der jeweils maximal 15 Minuten unmittelbar <strong>vor und nach</strong> der Auswechslung.</p>
+          <div className="analysis-kpis">
+            <div className="kpi-card"><span>Auswechslungen</span><strong>{outgoingRows.length}</strong></div>
+            <div className="kpi-card"><span>Vorher +/-</span><strong>{signed(outgoingTotals.beforeFor-outgoingTotals.beforeAgainst)}</strong></div>
+            <div className="kpi-card"><span>Nachher +/-</span><strong>{signed(outgoingTotals.afterFor-outgoingTotals.afterAgainst)}</strong></div>
+            <div className="kpi-card"><span>Veränderung / 80 Min.</span><strong>{outgoingTotals.afterMinutes && outgoingTotals.beforeMinutes ? signed(Number(((outgoingTotals.afterFor-outgoingTotals.afterAgainst)*80/outgoingTotals.afterMinutes - (outgoingTotals.beforeFor-outgoingTotals.beforeAgainst)*80/outgoingTotals.beforeMinutes).toFixed(2))) : "–"}</strong></div>
+          </div>
+          <div style={{overflowX:"auto",marginTop:16}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>{["Spiel","Minute","Eingewechselt","Vorher (Tore)","Nachher (Tore)","Vorher +/-","Nachher +/-","Weitere Wechsel"].map(h=><th key={h} style={cell}>{h}</th>)}</tr></thead>
+              <tbody>{outgoingRows.map((r,i)=><tr key={i}>
+                <td style={cell}>{r.date.slice(5)} · {r.opponent}</td><td style={cell}>{r.minute}′</td>
+                <td style={cell}>{r.on}</td><td style={cell}>{r.beforeFor}:{r.beforeAgainst} ({r.beforeMinutes}′)</td>
+                <td style={cell}>{r.afterFor}:{r.afterAgainst} ({r.afterMinutes}′)</td>
+                <td style={cell}>{signed(r.beforeFor-r.beforeAgainst)}</td><td style={cell}>{signed(r.afterFor-r.afterAgainst)}</td>
+                <td style={cell}>{r.concurrent>1 ? `${r.concurrent-1} gleichzeitig` : "keine gleichzeitig"}</td>
+              </tr>)}</tbody>
+            </table>
+            {!outgoingRows.length&&<p>Für diese Spielauswahl liegen keine Auswechslungen vor.</p>}
+          </div>
+          <p style={{fontSize:13,color:"#526052"}}>Die Vorher/Nachher-Zeiträume können durch weitere Wechsel, Spielsituation und Gegner beeinflusst sein. Kurzphasen am Spielende sind besonders unsicher. Die Werte sind keine kausale Wirkung des ausgewechselten Spielers.</p>
+        </div>
+      ) : tab === "changes" ? (
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
             <thead><tr>{["Spiel","Min.","Aus","Ein","Spielstand","Danach Tore","Danach +/-"].map(h=><th key={h} style={cell}>{h}</th>)}</tr></thead>
@@ -231,7 +292,7 @@ export default function PlayerImpact() {
         On/Off wird ausschließlich innerhalb der Spiele verglichen, in denen der Spieler tatsächlich eingesetzt wurde.
         Die ausgewiesenen Spielphasen sind durch Gegner, Spielstand, Mitspieler und Wechsel beeinflusst.
       </p>}
-      {detail&&tab!=="changes"&&<div style={{background:"#eef8ed",padding:16,borderRadius:12,marginTop:18}}>
+      {detail&&tab!=="changes"&&tab!=="outgoing"&&<div style={{background:"#eef8ed",padding:16,borderRadius:12,marginTop:18}}>
         <strong>{detail.name} · On/Off innerhalb seiner {detail.appearances} Spiele</strong>
         <p>Auf dem Platz: {detail.minutes} Minuten, {detail.scored}:{detail.conceded}, +/- {signed(detail.plusMinus)}
           {" "}({per80(detail.plusMinus,detail.minutes)} je 80 Min.)</p>
