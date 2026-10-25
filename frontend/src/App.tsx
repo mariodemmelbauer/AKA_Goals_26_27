@@ -9,6 +9,7 @@ import * as microsoftTeams
   from "@microsoft/teams-js";
 
 import "./App.css";
+import PlayerImpact from "./PlayerImpact";
 
 
 /* =====================================================
@@ -32,7 +33,8 @@ type EventType =
 
 type ViewMode =
   | "matches"
-  | "analysis";
+  | "analysis"
+  | "player-impact";
 
 type PitchMode =
   | "chain"
@@ -4200,12 +4202,26 @@ function App() {
               Team-Auswertung
             </button>
 
+            {selectedTeam === "U15" && (
+              <button
+                className={viewMode === "player-impact" ? "view-button-active" : ""}
+                onClick={() => {
+                  setViewMode("player-impact");
+                  setSelectedMatch(null);
+                }}
+              >
+                Spieler-Impact
+              </button>
+            )}
+
           </div>
 
         )}
 
 
-        {viewMode ===
+        {viewMode === "player-impact" && selectedTeam === "U15" ? (
+          <PlayerImpact />
+        ) : viewMode ===
         "analysis" ? (
 
           <section>
