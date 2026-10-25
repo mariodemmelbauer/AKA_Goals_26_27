@@ -80,16 +80,18 @@ type OffImpactRow = {
 const signed = (n: number) => n > 0 ? `+${n}` : String(n);
 const per80 = (n: number, mins: number) => mins ? (n * 80 / mins).toFixed(2).replace(".", ",") : "–";
 
-function getOutgoingImpact(fixtures: Fixture[], name: string): OffImpactRow[] {
+function getOutgoingImpact(fixtures: Fixture[], name: string, range: "full" | "15"): OffImpactRow[] {
   return fixtures.flatMap(match => match.substitutions
     .filter(([, off]) => off === name)
     .map(([minute, , on]) => {
-      const before = match.goals.filter(([m]) => m <= minute && m > Math.max(0, minute - 15));
-      const after = match.goals.filter(([m]) => m > minute && m <= Math.min(80, minute + 15));
+      const beforeStart = range === "full" ? 0 : Math.max(0, minute - 15);
+      const afterEnd = range === "full" ? 80 : Math.min(80, minute + 15);
+      const before = match.goals.filter(([m]) => m <= minute && m > beforeStart);
+      const after = match.goals.filter(([m]) => m > minute && m <= afterEnd);
       return {
         date: match.date, opponent: match.opponent, minute, on,
         concurrent: match.substitutions.filter(([m]) => m === minute).length,
-        beforeMinutes: Math.min(15, minute), afterMinutes: Math.min(15, 80-minute),
+        beforeMinutes: minute-beforeStart, afterMinutes: afterEnd-minute,
         beforeFor: before.filter(([,s]) => s === "for").length,
         beforeAgainst: before.filter(([,s]) => s === "against").length,
         afterFor: after.filter(([,s]) => s === "for").length,
@@ -169,6 +171,7 @@ export default function PlayerImpact() {
   const [tab, setTab] = useState<"players" | "jokers" | "changes" | "onoff" | "outgoing">("players");
   const [minMinutes, setMinMinutes] = useState(80);
   const [selectedPlayer, setSelectedPlayer] = useState("");
+  const [outgoingRange, setOutgoingRange] = useState<"full" | "15">("full");
   const fixtures = useMemo(() => FIXTURES.filter(f => selectedDates.includes(f.date)), [selectedDates]);
   const { players, changes } = useMemo(() => computeImpact(fixtures), [fixtures]);
   const ranked = [...players]
@@ -186,7 +189,7 @@ export default function PlayerImpact() {
   const detail = players.find(p => p.name === selectedPlayer);
   const outgoingNames = [...new Set(fixtures.flatMap(f => f.substitutions.map(([,off]) => off)))].sort();
   const outgoingName = outgoingNames.includes(selectedPlayer) ? selectedPlayer : (outgoingNames.includes("Bennet Berg") ? "Bennet Berg" : outgoingNames[0]);
-  const outgoingRows = outgoingName ? getOutgoingImpact(fixtures, outgoingName) : [];
+  const outgoingRows = outgoingName ? getOutgoingImpact(fixtures, outgoingName, outgoingRange) : [];
   const outgoingTotals = outgoingRows.reduce((s,r) => ({
     beforeMinutes:s.beforeMinutes+r.beforeMinutes, afterMinutes:s.afterMinutes+r.afterMinutes,
     beforeFor:s.beforeFor+r.beforeFor, beforeAgainst:s.beforeAgainst+r.beforeAgainst,
@@ -237,7 +240,14 @@ export default function PlayerImpact() {
               {outgoingNames.map(n=><option key={n} value={n}>{n}</option>)}
             </select>
           </label>
-          <p>Vergleich der jeweils maximal 15 Minuten unmittelbar <strong>vor und nach</strong> der Auswechslung.</p>
+          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:12}}>
+            <strong>Betrachtungszeitraum:</strong>
+            <button className={outgoingRange === "full" ? "view-button-active" : ""} onClick={() => setOutgoingRange("full")}>Gesamtes Spiel</button>
+            <button className={outgoingRange === "15" ? "view-button-active" : ""} onClick={() => setOutgoingRange("15")}>15 Minuten davor/danach</button>
+          </div>
+          <p>{outgoingRange === "full"
+            ? "Vergleich vom Anpfiff bis zur Auswechslung und von der Auswechslung bis zum Spielende (80. Minute)."
+            : "Vergleich der jeweils maximal 15 Minuten unmittelbar vor und nach der Auswechslung."}</p>
           <div className="analysis-kpis">
             <div className="kpi-card"><span>Auswechslungen</span><strong>{outgoingRows.length}</strong></div>
             <div className="kpi-card"><span>Vorher +/-</span><strong>{signed(outgoingTotals.beforeFor-outgoingTotals.beforeAgainst)}</strong></div>
@@ -257,7 +267,7 @@ export default function PlayerImpact() {
             </table>
             {!outgoingRows.length&&<p>Für diese Spielauswahl liegen keine Auswechslungen vor.</p>}
           </div>
-          <p style={{fontSize:13,color:"#526052"}}>Die Vorher/Nachher-Zeiträume können durch weitere Wechsel, Spielsituation und Gegner beeinflusst sein. Kurzphasen am Spielende sind besonders unsicher. Die Werte sind keine kausale Wirkung des ausgewechselten Spielers.</p>
+          <p style={{fontSize:13,color:"#526052"}}>Die Vorher/Nachher-Zeiträume sind unterschiedlich lang. Die Veränderung pro 80 Minuten gleicht die Dauer rechnerisch an, bleibt bei kurzen Restspielzeiten aber besonders unsicher. Andere Wechsel, Spielstand und Gegner beeinflussen die Werte. Eine kausale Wirkung des ausgewechselten Spielers lässt sich daraus nicht ableiten.</p>
         </div>
       ) : tab === "changes" ? (
         <div style={{overflowX:"auto"}}>
