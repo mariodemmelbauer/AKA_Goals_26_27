@@ -76,6 +76,11 @@ type OffImpactRow = {
   concurrent: number; beforeMinutes: number; afterMinutes: number;
   beforeFor: number; beforeAgainst: number; afterFor: number; afterAgainst: number;
 };
+type SubstitutionSummary = {
+  name: string; count: number; beforeMinutes: number; afterMinutes: number;
+  beforeFor: number; beforeAgainst: number; afterFor: number; afterAgainst: number;
+  changePer80: number;
+};
 
 const signed = (n: number) => n > 0 ? `+${n}` : String(n);
 const per80 = (n: number, mins: number) => mins ? (n * 80 / mins).toFixed(2).replace(".", ",") : "–";
@@ -98,6 +103,39 @@ function getOutgoingImpact(fixtures: Fixture[], name: string, range: "full" | "1
         afterAgainst: after.filter(([,s]) => s === "against").length
       };
     }));
+}
+
+function getSubstitutionSummaries(fixtures: Fixture[], direction: "incoming" | "outgoing"): SubstitutionSummary[] {
+  const byName = new Map<string, Omit<SubstitutionSummary, "changePer80">>();
+  for (const match of fixtures) {
+    for (const [minute, off, on] of match.substitutions) {
+      const name = direction === "incoming" ? on : off;
+      const current = byName.get(name) ?? {
+        name, count: 0, beforeMinutes: 0, afterMinutes: 0,
+        beforeFor: 0, beforeAgainst: 0, afterFor: 0, afterAgainst: 0
+      };
+      current.count++;
+      current.beforeMinutes += minute;
+      current.afterMinutes += 80-minute;
+      for (const [goalMinute, side] of match.goals) {
+        // Goals in the substitution minute are attributed to the period before.
+        if (goalMinute <= minute) {
+          if (side === "for") current.beforeFor++;
+          else current.beforeAgainst++;
+        } else {
+          if (side === "for") current.afterFor++;
+          else current.afterAgainst++;
+        }
+      }
+      byName.set(name, current);
+    }
+  }
+  return [...byName.values()].map(p => ({
+    ...p,
+    changePer80: p.beforeMinutes > 0 && p.afterMinutes > 0
+      ? ((p.afterFor-p.afterAgainst)/p.afterMinutes - (p.beforeFor-p.beforeAgainst)/p.beforeMinutes)*80
+      : 0
+  })).sort((a,b) => b.changePer80-a.changePer80 || b.count-a.count);
 }
 
 function computeImpact(fixtures: Fixture[]) {
@@ -168,10 +206,11 @@ function computeImpact(fixtures: Fixture[]) {
 
 export default function PlayerImpact() {
   const [selectedDates, setSelectedDates] = useState<string[]>(FIXTURES.map(f => f.date));
-  const [tab, setTab] = useState<"players" | "jokers" | "changes" | "onoff" | "outgoing">("players");
+  const [tab, setTab] = useState<"players" | "jokers" | "changes" | "onoff" | "outgoing" | "substitution-summary">("players");
   const [minMinutes, setMinMinutes] = useState(80);
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [outgoingRange, setOutgoingRange] = useState<"full" | "15">("full");
+  const [minSubstitutions, setMinSubstitutions] = useState(1);
   const fixtures = useMemo(() => FIXTURES.filter(f => selectedDates.includes(f.date)), [selectedDates]);
   const { players, changes } = useMemo(() => computeImpact(fixtures), [fixtures]);
   const ranked = [...players]
@@ -195,6 +234,8 @@ export default function PlayerImpact() {
     beforeFor:s.beforeFor+r.beforeFor, beforeAgainst:s.beforeAgainst+r.beforeAgainst,
     afterFor:s.afterFor+r.afterFor, afterAgainst:s.afterAgainst+r.afterAgainst
   }), {beforeMinutes:0,afterMinutes:0,beforeFor:0,beforeAgainst:0,afterFor:0,afterAgainst:0});
+  const incomingSummary = useMemo(() => getSubstitutionSummaries(fixtures, "incoming"), [fixtures]);
+  const outgoingSummary = useMemo(() => getSubstitutionSummaries(fixtures, "outgoing"), [fixtures]);
   const totalFor = fixtures.reduce((n,f) => n + f.goals.filter(g => g[1] === "for").length, 0);
   const totalAgainst = fixtures.reduce((n,f) => n + f.goals.filter(g => g[1] === "against").length, 0);
   const cell = {padding:"10px", borderBottom:"1px solid #e1e5e2", textAlign:"left" as const};
@@ -223,16 +264,52 @@ export default function PlayerImpact() {
         </div>
       </div>
       <div className="view-switcher" style={{flexWrap:"wrap",marginBottom:18}}>
-        {([["players","Spieler-Ranking"],["jokers","Joker-Impact"],["changes","Wechsel-Impact"],["onoff","On/Off"],["outgoing","Nach Auswechslung"]] as const)
+        {([["players","Spieler-Ranking"],["jokers","Joker-Impact"],["changes","Wechsel-Impact"],["onoff","On/Off"],["outgoing","Nach Auswechslung"],["substitution-summary","Wechsel-Gesamtübersicht"]] as const)
           .map(([key,label]) => <button key={key} className={tab===key?"view-button-active":""} onClick={() => setTab(key)}>{label}</button>)}
       </div>
-      {tab !== "changes" && tab !== "outgoing" && <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+      {tab !== "changes" && tab !== "outgoing" && tab !== "substitution-summary" && <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
         <label>Mindestminuten: <select value={minMinutes} onChange={e=>setMinMinutes(Number(e.target.value))}>
           {[0,40,80,160,240].map(m=><option key={m} value={m}>{m}</option>)}
         </select></label>
         <span style={{fontSize:13,color:"#526052"}}>Sortierung: Plus/Minus je 80 Einsatzminuten</span>
       </div>}
-      {tab === "outgoing" ? (
+      {tab === "substitution-summary" ? (
+        <div style={{display:"grid",gap:22}}>
+          <div style={{background:"#fff",borderRadius:12,padding:16}}>
+            <label>Mindestens <select value={minSubstitutions} onChange={e=>setMinSubstitutions(Number(e.target.value))}>
+              {[1,2,3,4].map(n=><option key={n} value={n}>{n} Wechsel</option>)}
+            </select> pro Spieler</label>
+            <p style={{fontSize:13,color:"#526052"}}>Für jeden Wechsel werden der Abschnitt vom Anpfiff bis zum Wechsel und der Abschnitt vom Wechsel bis zur 80. Minute verglichen. Die Rangfolge basiert auf der Veränderung der Tordifferenz pro 80 Minuten.</p>
+          </div>
+          {([[
+            "Einwechsel-Impact", incomingSummary,
+            "Ergebnisentwicklung der Mannschaft vor und nach der Einwechslung"
+          ],[
+            "Auswechsel-Impact", outgoingSummary,
+            "Ergebnisentwicklung der Mannschaft vor und nach der Auswechslung"
+          ]] as const).map(([title, rows, description]) => (
+            <div key={title} style={{background:"#fff",borderRadius:12,padding:16}}>
+              <h3>{title}</h3>
+              <p style={{fontSize:13,color:"#526052"}}>{description}</p>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{["Spieler","Wechsel","Vorher Minuten","Vorher Tore","Vorher +/-","Nachher Minuten","Nachher Tore","Nachher +/-","Veränderung / 80 Min."].map(h=><th key={h} style={cell}>{h}</th>)}</tr></thead>
+                  <tbody>{rows.filter(r=>r.count>=minSubstitutions).map(r=><tr key={r.name}>
+                    <td style={cell}>{r.name}</td><td style={cell}>{r.count}</td>
+                    <td style={cell}>{r.beforeMinutes}</td><td style={cell}>{r.beforeFor}:{r.beforeAgainst}</td>
+                    <td style={cell}>{signed(r.beforeFor-r.beforeAgainst)}</td>
+                    <td style={cell}>{r.afterMinutes}</td><td style={cell}>{r.afterFor}:{r.afterAgainst}</td>
+                    <td style={cell}>{signed(r.afterFor-r.afterAgainst)}</td>
+                    <td style={{...cell,fontWeight:700,color:r.changePer80>0?"#187a38":r.changePer80<0?"#b32b2b":undefined}}>{signed(Number(r.changePer80.toFixed(2))).replace(".",",")}</td>
+                  </tr>)}</tbody>
+                </table>
+                {!rows.some(r=>r.count>=minSubstitutions)&&<p>Keine Spieler mit ausreichend Wechseln.</p>}
+              </div>
+            </div>
+          ))}
+          <p style={{fontSize:13,color:"#526052"}}>Positive Veränderung bedeutet bessere Ergebnisentwicklung nach dem Wechsel, nicht zwingend positiven individuellen Einfluss. Gleichzeitige Wechsel erscheinen bei mehreren Spielern mit denselben Mannschaftswerten. Aufeinanderfolgende Wechsel erzeugen überlappende Zeiträume.</p>
+        </div>
+      ) : tab === "outgoing" ? (
         <div style={{background:"#fff",borderRadius:12,padding:16}}>
           <label style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",marginBottom:16}}>
             <strong>Ausgewechselter Spieler:</strong>
@@ -302,7 +379,7 @@ export default function PlayerImpact() {
         On/Off wird ausschließlich innerhalb der Spiele verglichen, in denen der Spieler tatsächlich eingesetzt wurde.
         Die ausgewiesenen Spielphasen sind durch Gegner, Spielstand, Mitspieler und Wechsel beeinflusst.
       </p>}
-      {detail&&tab!=="changes"&&tab!=="outgoing"&&<div style={{background:"#eef8ed",padding:16,borderRadius:12,marginTop:18}}>
+      {detail&&tab!=="changes"&&tab!=="outgoing"&&tab!=="substitution-summary"&&<div style={{background:"#eef8ed",padding:16,borderRadius:12,marginTop:18}}>
         <strong>{detail.name} · On/Off innerhalb seiner {detail.appearances} Spiele</strong>
         <p>Auf dem Platz: {detail.minutes} Minuten, {detail.scored}:{detail.conceded}, +/- {signed(detail.plusMinus)}
           {" "}({per80(detail.plusMinus,detail.minutes)} je 80 Min.)</p>
