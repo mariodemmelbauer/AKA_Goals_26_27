@@ -65,6 +65,15 @@ const FIXTURES: Fixture[] = [
   }
 ];
 
+const U16_ABSENCES: Record<string, string[]> = {
+  "2026-09-12": ["Milos Gnjatic"],
+  "2026-10-10": ["Nail Kovacevic","Milos Gnjatic","Arnes Moric","Simon Scharinger","Bennet Berg","Moritz Breitauer","Bilal Tajroski","Felix Berger"],
+  "2026-10-17": ["Nail Kovacevic","Milos Gnjatic","Arnes Moric","Bilal Tajroski"],
+  "2026-10-24": ["Nail Kovacevic"],
+  "2026-10-28": ["Nail Kovacevic","Arnes Moric","Simon Scharinger","Milos Gnjatic","Marko Buljan","Bilal Tajroski"]
+};
+
+
 type PlayerRow = {
   name: string; minutes: number; appearances: number; starts: number;
   scored: number; conceded: number; plusMinus: number;
@@ -87,6 +96,21 @@ type SubstitutionSummary = {
   beforeFor: number; beforeAgainst: number; afterFor: number; afterAgainst: number;
   changePer80: number;
 };
+
+type U16AbsenceImpactRow = {
+  name: string;
+  u16Absences: number;
+  withGames: number;
+  withFor: number;
+  withAgainst: number;
+  withoutGames: number;
+  withoutFor: number;
+  withoutAgainst: number;
+  withDiffPerGame: number;
+  withoutDiffPerGame: number;
+  availabilityImpact: number;
+};
+
 
 const signed = (n: number) => n > 0 ? `+${n}` : String(n);
 const per80 = (n: number, mins: number) => mins ? (n * 80 / mins).toFixed(2).replace(".", ",") : "–";
@@ -142,6 +166,77 @@ function getSubstitutionSummaries(fixtures: Fixture[], direction: "incoming" | "
       ? ((p.afterFor-p.afterAgainst)/p.afterMinutes - (p.beforeFor-p.beforeAgainst)/p.beforeMinutes)*80
       : 0
   })).sort((a,b) => b.changePer80-a.changePer80 || b.count-a.count);
+}
+
+function getFixturePlayers(match: Fixture): Set<string> {
+  return new Set([
+    ...match.starters,
+    ...match.substitutions.map(([, , on]) => on)
+  ]);
+}
+
+function getU16AbsenceCount(fixtures: Fixture[], name: string): number {
+  return fixtures.filter(match => (U16_ABSENCES[match.date] ?? []).includes(name)).length;
+}
+
+function getU16AbsenceImpact(fixtures: Fixture[]): U16AbsenceImpactRow[] {
+  const names = [...new Set(
+    fixtures.flatMap(match => U16_ABSENCES[match.date] ?? [])
+  )];
+
+  return names.map(name => {
+    let u16Absences = 0;
+    let withGames = 0;
+    let withFor = 0;
+    let withAgainst = 0;
+    let withoutGames = 0;
+    let withoutFor = 0;
+    let withoutAgainst = 0;
+
+    for (const match of fixtures) {
+      const players = getFixturePlayers(match);
+      const goalsFor = match.goals.filter(([, side]) => side === "for").length;
+      const goalsAgainst = match.goals.filter(([, side]) => side === "against").length;
+      const absentForU16 = (U16_ABSENCES[match.date] ?? []).includes(name);
+
+      if (absentForU16) {
+        u16Absences++;
+        withoutGames++;
+        withoutFor += goalsFor;
+        withoutAgainst += goalsAgainst;
+      } else if (players.has(name)) {
+        withGames++;
+        withFor += goalsFor;
+        withAgainst += goalsAgainst;
+      }
+    }
+
+    const withDiffPerGame = withGames > 0
+      ? (withFor - withAgainst) / withGames
+      : 0;
+
+    const withoutDiffPerGame = withoutGames > 0
+      ? (withoutFor - withoutAgainst) / withoutGames
+      : 0;
+
+    return {
+      name,
+      u16Absences,
+      withGames,
+      withFor,
+      withAgainst,
+      withoutGames,
+      withoutFor,
+      withoutAgainst,
+      withDiffPerGame,
+      withoutDiffPerGame,
+      availabilityImpact: withDiffPerGame - withoutDiffPerGame
+    };
+  }).sort((a,b) =>
+    b.availabilityImpact - a.availabilityImpact ||
+    b.u16Absences - a.u16Absences ||
+    a.name.localeCompare(b.name, "de")
+  );
 }
 
 function computeImpact(fixtures: Fixture[]) {
@@ -212,7 +307,7 @@ function computeImpact(fixtures: Fixture[]) {
 
 export default function PlayerImpact() {
   const [selectedDates, setSelectedDates] = useState<string[]>(FIXTURES.map(f => f.date));
-  const [tab, setTab] = useState<"players" | "jokers" | "changes" | "onoff" | "outgoing" | "substitution-summary">("players");
+  const [tab, setTab] = useState<"players" | "jokers" | "changes" | "onoff" | "outgoing" | "substitution-summary" | "u16-absence">("players");
   const [minMinutes, setMinMinutes] = useState(80);
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [outgoingRange, setOutgoingRange] = useState<"full" | "15">("full");
@@ -242,6 +337,7 @@ export default function PlayerImpact() {
   }), {beforeMinutes:0,afterMinutes:0,beforeFor:0,beforeAgainst:0,afterFor:0,afterAgainst:0});
   const incomingSummary = useMemo(() => getSubstitutionSummaries(fixtures, "incoming"), [fixtures]);
   const outgoingSummary = useMemo(() => getSubstitutionSummaries(fixtures, "outgoing"), [fixtures]);
+  const u16AbsenceImpact = useMemo(() => getU16AbsenceImpact(fixtures), [fixtures]);
   const totalFor = fixtures.reduce((n,f) => n + f.goals.filter(g => g[1] === "for").length, 0);
   const totalAgainst = fixtures.reduce((n,f) => n + f.goals.filter(g => g[1] === "against").length, 0);
   const cell = {padding:"10px", borderBottom:"1px solid #e1e5e2", textAlign:"left" as const};
@@ -270,16 +366,58 @@ export default function PlayerImpact() {
         </div>
       </div>
       <div className="view-switcher" style={{flexWrap:"wrap",marginBottom:18}}>
-        {([["players","Spieler-Ranking"],["jokers","Joker-Impact"],["changes","Wechsel-Impact"],["onoff","On/Off"],["outgoing","Nach Auswechslung"],["substitution-summary","Wechsel-Gesamtübersicht"]] as const)
+        {([["players","Spieler-Ranking"],["jokers","Joker-Impact"],["changes","Wechsel-Impact"],["onoff","On/Off"],["outgoing","Nach Auswechslung"],["substitution-summary","Wechsel-Gesamtübersicht"],["u16-absence","U16-Abwesenheits-Impact"]] as const)
           .map(([key,label]) => <button key={key} className={tab===key?"view-button-active":""} onClick={() => setTab(key)}>{label}</button>)}
       </div>
-      {tab !== "changes" && tab !== "outgoing" && tab !== "substitution-summary" && <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+      {tab !== "changes" && tab !== "outgoing" && tab !== "substitution-summary" && tab !== "u16-absence" && <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
         <label>Mindestminuten: <select value={minMinutes} onChange={e=>setMinMinutes(Number(e.target.value))}>
           {[0,40,80,160,240].map(m=><option key={m} value={m}>{m}</option>)}
         </select></label>
         <span style={{fontSize:13,color:"#526052"}}>Sortierung: Plus/Minus je 80 Einsatzminuten</span>
       </div>}
-      {tab === "substitution-summary" ? (
+      {tab === "u16-absence" ? (
+        <div style={{display:"grid",gap:18}}>
+          <div style={{background:"#fff",borderRadius:12,padding:16}}>
+            <h3>U16-Abwesenheits-Impact</h3>
+            <p style={{fontSize:13,color:"#526052",marginBottom:0}}>
+              Verglichen wird die U15-Gesamtbilanz in Spielen, in denen der Spieler eingesetzt wurde,
+              mit den Spielen, die er nachweislich wegen eines U16-Einsatzes verpasst hat.
+              Ein positiver Wert bedeutet: Die U15-Tordifferenz pro Spiel war mit dem Spieler besser.
+            </p>
+          </div>
+
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
+              <thead>
+                <tr>
+                  {["Spieler","U16-Abstellungen","U15 mit Spieler","Bilanz mit","Diff./Spiel mit","U15 ohne wegen U16","Bilanz ohne","Diff./Spiel ohne","Availability Impact"].map(h=><th key={h} style={cell}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {u16AbsenceImpact.map(r=><tr key={r.name}>
+                  <td style={cell}>{r.name}</td>
+                  <td style={cell}>{r.u16Absences}</td>
+                  <td style={cell}>{r.withGames}</td>
+                  <td style={cell}>{r.withFor}:{r.withAgainst}</td>
+                  <td style={cell}>{signed(Number(r.withDiffPerGame.toFixed(2))).replace(".",",")}</td>
+                  <td style={cell}>{r.withoutGames}</td>
+                  <td style={cell}>{r.withoutFor}:{r.withoutAgainst}</td>
+                  <td style={cell}>{signed(Number(r.withoutDiffPerGame.toFixed(2))).replace(".",",")}</td>
+                  <td style={{...cell,fontWeight:700,color:r.availabilityImpact>0?"#187a38":r.availabilityImpact<0?"#b32b2b":undefined}}>
+                    {signed(Number(r.availabilityImpact.toFixed(2))).replace(".",",")}
+                  </td>
+                </tr>)}
+              </tbody>
+            </table>
+            {!u16AbsenceImpact.length&&<p>Für die gewählte Spielauswahl sind keine bestätigten U16-Abstellungen hinterlegt.</p>}
+          </div>
+
+          <p style={{fontSize:13,color:"#526052"}}>
+            Wichtig: Das ist kein kausaler Einzelspielerwert. Besonders Spiele wie Red Bull, in denen mehrere U15-Spieler gleichzeitig in der U16 waren,
+            beeinflussen mehrere Spieler mit demselben Mannschaftsergebnis. Der Wert zeigt deshalb einen Availability-/Abwesenheitszusammenhang.
+          </p>
+        </div>
+      ) : tab === "substitution-summary" ? (
         <div style={{display:"grid",gap:22}}>
           <div style={{background:"#fff",borderRadius:12,padding:16}}>
             <label>Mindestens <select value={minSubstitutions} onChange={e=>setMinSubstitutions(Number(e.target.value))}>
@@ -366,7 +504,7 @@ export default function PlayerImpact() {
       ) : (
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
-            <thead><tr>{["Spieler","Einsätze","Minuten","Tore mit","Gegentore mit","+/-","Pro 80 Min."].map(h=><th key={h} style={cell}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Spieler","Einsätze","U16-Abstellungen","Minuten","Tore mit","Gegentore mit","+/-","Pro 80 Min."].map(h=><th key={h} style={cell}>{h}</th>)}</tr></thead>
             <tbody>{ranked.map(p=>{
               const joker=tab==="jokers";
               const mins=joker?p.jokerMinutes:p.minutes;
@@ -374,6 +512,7 @@ export default function PlayerImpact() {
               const ga=joker?p.jokerConceded:p.conceded;
               return <tr key={p.name} onClick={()=>setSelectedPlayer(p.name)} style={{cursor:"pointer",background:selectedPlayer===p.name?"#e9f7e8":undefined}}>
                 <td style={cell}>{p.name}</td><td style={cell}>{p.appearances} ({p.starts} Startelf)</td>
+                <td style={cell}>{getU16AbsenceCount(fixtures,p.name)}</td>
                 <td style={cell}>{mins}</td><td style={cell}>{gf}</td><td style={cell}>{ga}</td>
                 <td style={cell}>{signed(gf-ga)}</td><td style={cell}>{per80(gf-ga,mins)}</td></tr>;
             })}</tbody>
@@ -385,7 +524,7 @@ export default function PlayerImpact() {
         On/Off wird ausschließlich innerhalb der Spiele verglichen, in denen der Spieler tatsächlich eingesetzt wurde.
         Die ausgewiesenen Spielphasen sind durch Gegner, Spielstand, Mitspieler und Wechsel beeinflusst.
       </p>}
-      {detail&&tab!=="changes"&&tab!=="outgoing"&&tab!=="substitution-summary"&&<div style={{background:"#eef8ed",padding:16,borderRadius:12,marginTop:18}}>
+      {detail&&tab!=="changes"&&tab!=="outgoing"&&tab!=="substitution-summary"&&tab!=="u16-absence"&&<div style={{background:"#eef8ed",padding:16,borderRadius:12,marginTop:18}}>
         <strong>{detail.name} · On/Off innerhalb seiner {detail.appearances} Spiele</strong>
         <p>Auf dem Platz: {detail.minutes} Minuten, {detail.scored}:{detail.conceded}, +/- {signed(detail.plusMinus)}
           {" "}({per80(detail.plusMinus,detail.minutes)} je 80 Min.)</p>
@@ -395,7 +534,8 @@ export default function PlayerImpact() {
       </div>}
       <p style={{fontSize:13,color:"#526052",marginTop:20}}>
         Methodik: 80 Minuten pro Partie, Halbzeitwechsel bei Minute 40.
-        Gleichzeitige Wechsel werden gemeinsam betrachtet. Die Werte beschreiben Ergebnisphasen,
+        Gleichzeitige Wechsel werden gemeinsam betrachtet. Bestätigte U16-Abstellungen werden separat
+        als Abwesenheits-/Availability-Impact ausgewertet. Die Werte beschreiben Ergebnisphasen und Zusammenhänge,
         nicht die isolierte individuelle Leistung.
       </p>
     </section>
