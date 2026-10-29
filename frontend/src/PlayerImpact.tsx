@@ -11,7 +11,7 @@ type Fixture = {
   substitutions: Substitution[];
 };
 
-// Initial, manually transcribed source: seven official U15 match reports.
+// Initial, manually transcribed source: eight official U15 match reports.
 // These are NOT fetched from the AKA Goals API. Add an import/persistence
 // workflow before expecting newly entered matches to appear automatically.
 const FIXTURES: Fixture[] = [
@@ -56,6 +56,12 @@ const FIXTURES: Fixture[] = [
     goals: [[34,"against"],[69,"against"]],
     starters: ["Tobias Sommer","Arnes Moric","Milos Gnjatic","Simon Scharinger","Anton Bauernfeind","Bennet Berg","Marko Buljan","David Motz","Nico Hartl","Moritz Breitauer","Emir Aktas"],
     substitutions: [[66,"Moritz Breitauer","Felix Berger"],[66,"Bennet Berg","Moamen Mezzi"],[66,"Simon Scharinger","Niko Malekin"],[53,"Marko Buljan","Diyan Behric"],[53,"Emir Aktas","Sirac Celepci"]]
+  },
+  {
+    date: "2026-10-28", opponent: "AKA Steiermark / Sturm Graz", result: "1:6",
+    goals: [[18,"against"],[25,"against"],[26,"against"],[45,"against"],[66,"against"],[70,"against"],[79,"for"]],
+    starters: ["Tobias Sommer","Anton Bauernfeind","David Motz","Felix Berger","Niko Malekin","Bennet Berg","Diyan Behric","Moritz Breitauer","Amil Jusic","Moamen Mezzi","Emir Aktas"],
+    substitutions: [[56,"Diyan Behric","Din Delibegovic"],[56,"Amil Jusic","Sirac Celepci"],[56,"Moamen Mezzi","Sebastian Itzinger"],[61,"Tobias Sommer","Adnan Selmanovic"]]
   }
 ];
 
@@ -244,7 +250,7 @@ export default function PlayerImpact() {
     <section style={{maxWidth:1200,margin:"0 auto"}}>
       <h2>U15 – Spieler-Impact</h2>
       <p style={{color:"#526052"}}>
-        Ergebnis-Impact aus offiziellen Spielberichten (Stand 24.10.2026).
+        Ergebnis-Impact aus offiziellen Spielberichten (Stand 28.10.2026).
         Kein IMPECT-Tracking und keine automatische Übernahme neuer AKA-Goals-Ereignisse.
       </p>
       <div className="analysis-kpis">
